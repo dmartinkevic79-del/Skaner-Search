@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Складской Поиск ID</title>
+    <script src="https://unpkg.com/html5-qrcode"></script>
+    <style>
+        body {
+            font-family: -apple-system, system-ui, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            margin: 0;
+            padding: 15px;
+            background-color: #f0f2f5;
+            color: #333;
+            text-align: center;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 15px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        #reader {
+            width: 100%;
+            border-radius: 10px;
+            overflow: hidden;
+            background: #000;
+            margin-top: 15px;
+        }
+        textarea {
+            width: 100%;
+            height: 120px;
+            border: 2px solid #ddd;
+            border-radius: 10px;
+            padding: 10px;
+            font-size: 16px;
+            box-sizing: border-box;
+            margin-bottom: 10px;
+        }
+        .controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        button {
+            flex: 1;
+            padding: 15px;
+            font-size: 16px;
+            font-weight: bold;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: transform 0.1s;
+        }
+        button:active { transform: scale(0.98); }
+        .btn-start { background: #28a745; color: white; }
+        .btn-clear { background: #dc3545; color: white; }
+        
+        #status {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 8px;
+            font-weight: bold;
+            background: #e9ecef;
+        }
+        /* Анимация при нахождении кода */
+        .found-match {
+            animation: alarm-bg 0.4s infinite;
+        }
+        @keyframes alarm-bg {
+            0% { background-color: white; }
+            50% { background-color: #ff4d4d; }
+            100% { background-color: white; }
+        }
+        .last-found {
+            font-size: 24px;
+            color: #d63031;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body id="mainBody">
+
+<div class="container">
+    <h2>Сканер-Поисковик</h2>
+    
+    <textarea id="codesInput" placeholder="Вставьте список ID (каждый с новой строки)"></textarea>
+    
+    <div class="controls">
+        <button class="btn-clear" onclick="clearAll()">ОЧИСТИТЬ</button>
+        <button class="btn-start" id="startBtn" onclick="startSearch()">ЗАПУСТИТЬ ПОИСК</button>
+    </div>
+
+    <div id="status">Готов к работе</div>
+    <div id="lastMatch" class="last-found"></div>
+
+    <div id="reader"></div>
+</div>
+
+<script>
+    let targetCodes = new Set();
+    let html5QrCode;
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+    // 1. Функция генерации мерзкого звука (пилообразная волна)
+    function playAlarm() {
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+        
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        
+        osc.type = 'sawtooth'; 
+        osc.frequency.setValueAtTime(1000, audioCtx.currentTime); // Высокий тон
+        
+        // Делаем звук прерывистым (бип-бип)
+        gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.4);
+        
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        
+        osc.start();
+        osc.stop(audioCtx.currentTime + 0.4);
+    }
+
+    // 2. Очистка
+    function clearAll() {
+        document.getElementById('codesInput').value = '';
+        document.getElementById('lastMatch').innerText = '';
+        document.getElementById('status').innerText = 'Список очищен';
+        targetCodes.clear();
+        if (html5QrCode) {
+            html5QrCode.stop();
+            document.getElementById('startBtn').style.display = 'block';
+        }
+    }
+
+    // 3. Основная логика поиска
+    function startSearch() {
+        const input = document.getElementById('codesInput').value;
+        const lines = input.split('\n').map(s => s.trim()).filter(s => s !== "");
+        
+        if (lines.length === 0) {
+            alert("Сначала вставьте список ID для поиска!");
+            return;
+        }
+
+        targetCodes = new Set(lines);
+        document.getElementById('status').innerText = `Ищем объектов: ${targetCodes.size}`;
+        document.getElementById('startBtn').style.display = 'none';
+
+        // Инициализация камеры
+        html5QrCode = new Html5Qrcode("reader");
+        
+        const config = { 
+            fps: 20, // Высокая частота кадров для быстрого сканирования
+            qrbox: { width: 280, height: 280 },
+            aspectRatio: 1.0
+        };
+
+        html5QrCode.start(
+            { facingMode: "environment" }, 
+            config,
+            (decodedText) => {
+                // ЛОГИКА ОБРАБОТКИ ВАШЕГО ФОРМАТА
+                // Извлекаем ID из строки типа $1:1:4889547669:5226
+                const parts = decodedText.split(':');
+                const extractedId = parts[2]; // Берем элемент между 2-м и 3-м двоеточием
+
+                if (extractedId && targetCodes.has(extractedId)) {
+                    handleMatch(extractedId);
+                }
+            },
+            (errorMessage) => {
+                // Ошибки сканирования игнорируем, чтобы не спамить в консоль
+            }
+        ).catch(err => {
+            alert("Ошибка запуска камеры. Убедитесь, что используете HTTPS!");
+            document.getElementById('startBtn').style.display = 'block';
+        });
+    }
+
+    // 4. Действие при совпадении
+    function handleMatch(id) {
+        playAlarm();
+        
+        // Вибрация (если поддерживается)
+        if (navigator.vibrate) navigator.vibrate([300, 100, 300]);
+
+        // Визуальная индикация
+        const body = document.getElementById('mainBody');
+        const display = document.getElementById('lastMatch');
+        
+        display.innerText = "НАЙДЕН: " + id;
+        body.classList.add('found-match');
+        
+        // Выключаем мигание через 2 секунды, чтобы можно было искать дальше
+        setTimeout(() => {
+            body.classList.remove('found-match');
+        }, 2000);
+    }
+</script>
+
+</body>
+</html>
