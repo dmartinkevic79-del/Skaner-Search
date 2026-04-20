@@ -3,189 +3,164 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Sklad Scanner Dark</title>
+    <title>Sklad Scanner Dark Pro</title>
     <script src="https://unpkg.com/html5-qrcode"></script>
     <style>
+        /* Принудительная темная тема */
         :root {
-            /* Палитра темной темы */
-            --bg: #0f172a;
-            --card-bg: #1e293b;
-            --primary: #6366f1;
-            --primary-hover: #818cf8;
-            --success: #10b981;
-            --danger: #ef4444;
-            --text-main: #f1f5f9;
-            --text-muted: #94a3b8;
-            --border: #334155;
-            --input-bg: #0f172a;
+            --bg: #000000; /* Чистый черный для экономии заряда */
+            --card-bg: #111827; /* Темно-серый/синий */
+            --primary: #4f46e5;
+            --success: #059669;
+            --danger: #dc2626;
+            --text: #f3f4f6;
+            --text-dim: #9ca3af;
+            --border: #374151;
         }
 
         body {
-            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            font-family: -apple-system, system-ui, sans-serif;
             margin: 0;
             padding: 0;
-            background-color: var(--bg);
-            color: var(--text-main);
-            -webkit-tap-highlight-color: transparent;
+            background-color: var(--bg) !important;
+            color: var(--text) !important;
+            min-height: 100vh;
         }
 
         .container {
-            max-width: 600px;
+            max-width: 500px;
             margin: 0 auto;
-            padding: 20px;
+            padding: 15px;
         }
 
         .card {
             background: var(--card-bg);
-            border-radius: 20px;
-            padding: 24px;
-            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
-            margin-bottom: 20px;
+            border-radius: 16px;
+            padding: 20px;
             border: 1px solid var(--border);
+            margin-bottom: 15px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.5);
         }
 
-        h2 { margin-top: 0; font-size: 1.6rem; text-align: center; color: var(--primary-hover); }
+        h2 { color: var(--text); text-align: center; margin-top: 0; }
 
-        /* Поле ввода */
         textarea {
             width: 100%;
-            height: 160px;
-            border: 2px solid var(--border);
-            border-radius: 12px;
-            padding: 14px;
+            height: 140px;
+            background: #000;
+            color: #22c55e; /* Текст в поле ввода будет зеленым, как в терминале */
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 12px;
+            font-family: monospace;
             font-size: 16px;
             box-sizing: border-box;
-            background-color: var(--input-bg);
-            color: var(--text-main);
-            transition: border-color 0.2s;
-            resize: none;
         }
-        textarea:focus { outline: none; border-color: var(--primary); }
 
-        /* Кнопки */
         button {
             width: 100%;
             padding: 16px;
-            font-size: 16px;
-            font-weight: 700;
+            border-radius: 12px;
             border: none;
-            border-radius: 14px;
-            cursor: pointer;
-            transition: all 0.2s;
+            font-size: 16px;
+            font-weight: bold;
             color: white;
+            cursor: pointer;
             display: flex;
             justify-content: center;
             align-items: center;
             gap: 10px;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
+            transition: 0.2s;
         }
-        button:active { transform: scale(0.96); }
-        .btn-primary { background-color: var(--primary); box-shadow: 0 4px 14px 0 rgba(99, 102, 241, 0.4); }
-        .btn-success { background-color: var(--success); box-shadow: 0 4px 14px 0 rgba(16, 185, 129, 0.4); }
-        .btn-danger { background-color: transparent; border: 2px solid var(--danger); color: var(--danger); margin-top: 10px; }
-        
-        .action-buttons { display: flex; gap: 12px; margin-top: 20px; }
 
-        /* Экраны */
-        #screenScanner { display: none; }
+        .btn-start { background: var(--primary); margin-top: 15px; }
+        .btn-export { background: var(--success); }
+        .btn-stop { background: transparent; border: 1px solid var(--danger); color: var(--danger); }
 
-        /* Стили сканера */
-        #reader { border-radius: 16px; overflow: hidden; background: #000; border: 1px solid var(--border); }
-        
+        #reader {
+            border-radius: 12px;
+            overflow: hidden;
+            background: #000;
+            border: 1px solid var(--border);
+        }
+
         /* Панель статистики */
-        .stats-panel {
+        .stats {
             display: flex;
             justify-content: space-between;
-            align-items: center;
-            background: rgba(99, 102, 241, 0.1);
-            padding: 16px 20px;
-            border-radius: 14px;
-            margin: 20px 0;
-            border: 1px solid var(--primary);
+            background: #1f2937;
+            padding: 15px;
+            border-radius: 12px;
+            margin: 10px 0;
+            border-left: 4px solid var(--primary);
         }
-        .stats-label { color: var(--text-muted); font-size: 14px; text-transform: uppercase; }
-        .stats-value { font-size: 22px; font-weight: 800; color: var(--primary-hover); }
+
+        .stats-item { display: flex; flex-direction: column; }
+        .label { font-size: 12px; color: var(--text-dim); text-transform: uppercase; }
+        .val { font-size: 20px; font-weight: bold; }
 
         /* Список найденного */
         .found-list {
             list-style: none;
             padding: 0;
             margin: 0;
-            max-height: 250px;
+            max-height: 180px;
             overflow-y: auto;
             border: 1px solid var(--border);
-            border-radius: 12px;
-            background: rgba(0,0,0,0.2);
+            border-radius: 10px;
         }
+
         .found-list li {
-            padding: 14px 18px;
+            padding: 12px;
             border-bottom: 1px solid var(--border);
             display: flex;
             justify-content: space-between;
-            align-items: center;
-            animation: slideIn 0.3s ease-out;
-        }
-        .found-list li:last-child { border-bottom: none; }
-        .found-list li strong { color: var(--success); font-family: monospace; font-size: 18px; }
-        .found-list li .time { font-size: 13px; color: var(--text-muted); }
-
-        @keyframes slideIn {
-            from { opacity: 0; transform: translateX(-15px); }
-            to { opacity: 1; transform: translateX(0); }
+            font-size: 14px;
         }
 
-        /* Анимация тревоги */
-        .alarm-active { animation: alarm-flash 0.5s infinite; }
-        @keyframes alarm-flash {
-            0% { background-color: var(--bg); }
-            50% { background-color: #7f1d1d; } /* Темно-красный для темной темы */
-            100% { background-color: var(--bg); }
+        .found-list li strong { color: #10b981; }
+
+        /* Эффект тревоги */
+        .alarm-flash { animation: flash-red 0.5s infinite; }
+        @keyframes flash-red {
+            0% { background: var(--bg); }
+            50% { background: #7f1d1d; }
+            100% { background: var(--bg); }
         }
 
-        /* Кастомизация скроллбара */
-        ::-webkit-scrollbar { width: 6px; }
-        ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 10px; }
+        #screenScanner { display: none; }
     </style>
 </head>
 <body id="mainBody">
 
 <div class="container">
     <div id="screenSetup" class="card">
-        <h2>Настройка поиска</h2>
-        <textarea id="codesInput" placeholder="Вставьте ID товаров...&#10;Каждый с новой строки.&#10;Будет извлечен ID из $1:1:ID:5226"></textarea>
-        <button class="btn-primary" onclick="startApp()" style="margin-top: 20px;">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
-            Запустить сканер
-        </button>
+        <h2>Загрузка ID</h2>
+        <textarea id="codesInput" placeholder="Вставьте ID сюда..."></textarea>
+        <button class="btn-start" onclick="startApp()">ЗАПУСТИТЬ</button>
     </div>
 
     <div id="screenScanner">
-        <div class="card" style="padding: 10px; margin-bottom: 10px;">
+        <div class="card" style="padding: 5px;">
             <div id="reader"></div>
         </div>
 
-        <div class="stats-panel">
-            <div>
-                <div class="stats-label">Прогресс</div>
-                <div class="stats-value" id="progressCounter">0 / 0</div>
+        <div class="stats">
+            <div class="stats-item">
+                <span class="label">Найдено</span>
+                <span class="val" id="progressCounter">0 / 0</span>
             </div>
-            <div style="text-align: right;">
-                <div class="stats-label">Сессия</div>
-                <div class="stats-value" style="color: var(--text-main);" id="sessionTimer">00:00</div>
+            <div class="stats-item" style="text-align: right;">
+                <span class="label">Таймер</span>
+                <span class="val" id="sessionTimer">00:00</span>
             </div>
         </div>
 
         <div class="card">
-            <h3 style="margin: 0 0 15px 0; font-size: 14px; color: var(--text-muted); text-transform: uppercase;">Обнаружено:</h3>
             <ul class="found-list" id="foundItemsList"></ul>
-
-            <div class="action-buttons">
-                <button class="btn-success" onclick="exportResults()">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
-                    Выгрузить CSV
-                </button>
-                <button class="btn-danger" onclick="stopApp()">Выход</button>
+            <div style="display: flex; gap: 10px; margin-top: 15px;">
+                <button class="btn-export" onclick="exportResults()">CSV</button>
+                <button class="btn-stop" onclick="stopApp()">ВЫХОД</button>
             </div>
         </div>
     </div>
@@ -195,43 +170,83 @@
     let targetCodes = new Set();
     let foundCodes = new Set();
     let html5QrCode;
-    let timerInterval;
-    let seconds = 0;
+    let timer;
+    let sec = 0;
     const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 
-    function startTimer() {
-        seconds = 0;
-        timerInterval = setInterval(() => {
-            seconds++;
-            const m = Math.floor(seconds / 60).toString().padStart(2, '0');
-            const s = (seconds % 60).toString().padStart(2, '0');
-            document.getElementById('sessionTimer').innerText = `${m}:${s}`;
-        }, 1000);
-    }
-
-    function playAlarm() {
+    function playSound() {
         if (audioCtx.state === 'suspended') audioCtx.resume();
         const osc = audioCtx.createOscillator();
-        const gain = audioCtx.createGain();
+        const g = audioCtx.createGain();
         osc.type = 'sawtooth';
-        osc.frequency.setValueAtTime(1100, audioCtx.currentTime);
-        gain.gain.setValueAtTime(0.4, audioCtx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.6);
-        osc.connect(gain);
-        gain.connect(audioCtx.destination);
-        osc.start();
-        osc.stop(audioCtx.currentTime + 0.6);
+        osc.frequency.setValueAtTime(1000, audioCtx.currentTime);
+        g.gain.setValueAtTime(0.3, audioCtx.currentTime);
+        g.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.5);
+        osc.connect(g); g.connect(audioCtx.destination);
+        osc.start(); osc.stop(audioCtx.currentTime + 0.5);
     }
 
     function startApp() {
         const input = document.getElementById('codesInput').value;
         const lines = input.split('\n').map(s => s.trim()).filter(s => s !== "");
-        
-        if (lines.length === 0) {
-            alert("Список ID пуст!");
-            return;
-        }
+        if (!lines.length) return alert("Введите ID!");
 
         targetCodes = new Set(lines);
         foundCodes.clear();
+        document.getElementById('foundItemsList').innerHTML = '';
+        
+        document.getElementById('screenSetup').style.display = 'none';
+        document.getElementById('screenScanner').style.display = 'block';
+        
+        sec = 0;
+        timer = setInterval(() => {
+            sec++;
+            document.getElementById('sessionTimer').innerText = 
+                `${Math.floor(sec/60).toString().padStart(2,'0')}:${(sec%60).toString().padStart(2,'0')}`;
+        }, 1000);
+
+        html5QrCode = new Html5Qrcode("reader");
+        html5QrCode.start(
+            { facingMode: "environment" }, 
+            { fps: 20, qrbox: 250 },
+            (text) => {
+                const id = text.split(':')[2];
+                if (id && targetCodes.has(id) && !foundCodes.has(id)) {
+                    foundCodes.add(id);
+                    playSound();
+                    if (navigator.vibrate) navigator.vibrate(400);
+                    
+                    const b = document.getElementById('mainBody');
+                    b.classList.add('alarm-flash');
+                    setTimeout(() => b.classList.remove('alarm-flash'), 1000);
+
+                    const li = document.createElement('li');
+                    li.innerHTML = `<strong>${id}</strong> <span>${new Date().toLocaleTimeString()}</span>`;
+                    document.getElementById('foundItemsList').prepend(li);
+                    
+                    document.getElementById('progressCounter').innerText = `${foundCodes.size} / ${targetCodes.size}`;
+                }
+            }, () => {}
+        );
+    }
+
+    function exportResults() {
+        let csv = "ID;Time\n";
+        foundCodes.forEach(id => csv += id + ";" + new Date().toLocaleTimeString() + "\n");
+        const blob = new Blob([csv], {type: 'text/csv'});
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = 'export.csv';
+        a.click();
+    }
+
+    function stopApp() {
+        html5QrCode.stop().then(() => {
+            clearInterval(timer);
+            location.reload(); // Полная перезагрузка для сброса состояния
+        });
+    }
+</script>
+</body>
+</html>
 
