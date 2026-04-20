@@ -2,204 +2,324 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Складской Поиск ID</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Умный Складской Сканер</title>
     <script src="https://unpkg.com/html5-qrcode"></script>
     <style>
-        body {
-            font-family: -apple-system, system-ui, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            margin: 0;
-            padding: 15px;
-            background-color: #f0f2f5;
-            color: #333;
-            text-align: center;
+        :root {
+            --primary: #4f46e5;
+            --primary-hover: #4338ca;
+            --success: #10b981;
+            --danger: #ef4444;
+            --bg: #f8fafc;
+            --card-bg: #ffffff;
+            --text-main: #0f172a;
+            --text-muted: #64748b;
         }
+
+        body {
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: var(--bg);
+            color: var(--text-main);
+            -webkit-tap-highlight-color: transparent;
+        }
+
         .container {
             max-width: 600px;
             margin: 0 auto;
-            background: white;
             padding: 20px;
-            border-radius: 15px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
         }
-        #reader {
-            width: 100%;
-            border-radius: 10px;
-            overflow: hidden;
-            background: #000;
-            margin-top: 15px;
+
+        /* Карточный дизайн */
+        .card {
+            background: var(--card-bg);
+            border-radius: 16px;
+            padding: 20px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            margin-bottom: 20px;
         }
+
+        h2 { margin-top: 0; font-size: 1.5rem; text-align: center; }
+
+        /* Поле ввода */
         textarea {
             width: 100%;
-            height: 120px;
-            border: 2px solid #ddd;
-            border-radius: 10px;
-            padding: 10px;
+            height: 150px;
+            border: 2px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 12px;
             font-size: 16px;
             box-sizing: border-box;
-            margin-bottom: 10px;
+            transition: border-color 0.2s;
+            resize: none;
         }
-        .controls {
-            display: flex;
-            gap: 10px;
-            margin-bottom: 15px;
-        }
+        textarea:focus { outline: none; border-color: var(--primary); }
+
+        /* Кнопки */
         button {
-            flex: 1;
-            padding: 15px;
+            width: 100%;
+            padding: 16px;
             font-size: 16px;
-            font-weight: bold;
+            font-weight: 600;
             border: none;
-            border-radius: 10px;
+            border-radius: 12px;
             cursor: pointer;
-            transition: transform 0.1s;
+            transition: transform 0.1s, background-color 0.2s;
+            color: white;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 8px;
         }
         button:active { transform: scale(0.98); }
-        .btn-start { background: #28a745; color: white; }
-        .btn-clear { background: #dc3545; color: white; }
+        .btn-primary { background-color: var(--primary); }
+        .btn-primary:hover { background-color: var(--primary-hover); }
+        .btn-success { background-color: var(--success); }
+        .btn-danger { background-color: var(--danger); margin-top: 10px; }
         
-        #status {
-            padding: 10px;
-            margin: 10px 0;
-            border-radius: 8px;
+        .action-buttons { display: flex; gap: 10px; margin-top: 15px; }
+
+        /* Экраны */
+        #screenScanner { display: none; }
+
+        /* Стили сканера */
+        #reader { border-radius: 12px; overflow: hidden; background: #000; }
+        
+        /* Прогресс и статистика */
+        .stats-panel {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: #e0e7ff;
+            padding: 15px;
+            border-radius: 12px;
+            margin: 15px 0;
             font-weight: bold;
-            background: #e9ecef;
+            font-size: 18px;
+            color: var(--primary-hover);
         }
-        /* Анимация при нахождении кода */
-        .found-match {
-            animation: alarm-bg 0.4s infinite;
+
+        /* Список найденного */
+        .found-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+            max-height: 200px;
+            overflow-y: auto;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
         }
-        @keyframes alarm-bg {
-            0% { background-color: white; }
-            50% { background-color: #ff4d4d; }
-            100% { background-color: white; }
+        .found-list li {
+            padding: 12px 15px;
+            border-bottom: 1px solid #e2e8f0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            animation: slideIn 0.3s ease-out;
+            background: #f8fafc;
         }
-        .last-found {
-            font-size: 24px;
-            color: #d63031;
-            margin-top: 10px;
+        .found-list li:last-child { border-bottom: none; }
+        .found-list li .time { font-size: 12px; color: var(--text-muted); }
+
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Анимация тревоги */
+        .alarm-flash { animation: flash-red 0.5s 2; }
+        @keyframes flash-red {
+            0% { background-color: var(--bg); }
+            50% { background-color: #fca5a5; }
+            100% { background-color: var(--bg); }
         }
     </style>
 </head>
 <body id="mainBody">
 
 <div class="container">
-    <h2>Сканер-Поисковик</h2>
-    
-    <textarea id="codesInput" placeholder="Вставьте список ID (каждый с новой строки)"></textarea>
-    
-    <div class="controls">
-        <button class="btn-clear" onclick="clearAll()">ОЧИСТИТЬ</button>
-        <button class="btn-start" id="startBtn" onclick="startSearch()">ЗАПУСТИТЬ ПОИСК</button>
+    <div id="screenSetup" class="card">
+        <h2>Загрузка задания</h2>
+        <textarea id="codesInput" placeholder="Вставьте список ID сюда...&#10;Пример:&#10;4889547669&#10;4889547670"></textarea>
+        <button class="btn-primary" onclick="startApp()" style="margin-top: 15px;">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+            НАЧАТЬ ПОИСК
+        </button>
     </div>
 
-    <div id="status">Готов к работе</div>
-    <div id="lastMatch" class="last-found"></div>
+    <div id="screenScanner">
+        <div class="card" style="padding: 10px;">
+            <div id="reader"></div>
+        </div>
 
-    <div id="reader"></div>
+        <div class="stats-panel">
+            <span>Прогресс:</span>
+            <span id="progressCounter">0 / 0</span>
+        </div>
+
+        <div class="card">
+            <h3 style="margin-top: 0; font-size: 16px; color: var(--text-muted);">Найденные коды:</h3>
+            <ul class="found-list" id="foundItemsList">
+                </ul>
+
+            <div class="action-buttons">
+                <button class="btn-success" onclick="exportResults()">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                    ВЫГРУЗИТЬ
+                </button>
+                <button class="btn-danger" onclick="stopApp()">ЗАВЕРШИТЬ</button>
+            </div>
+        </div>
+    </div>
 </div>
 
 <script>
     let targetCodes = new Set();
+    let foundCodes = new Set();
     let html5QrCode;
     const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 
-    // 1. Функция генерации мерзкого звука (пилообразная волна)
+    // 1. Генерация звука
     function playAlarm() {
         if (audioCtx.state === 'suspended') audioCtx.resume();
-        
         const osc = audioCtx.createOscillator();
         const gain = audioCtx.createGain();
         
         osc.type = 'sawtooth'; 
-        osc.frequency.setValueAtTime(1000, audioCtx.currentTime); // Высокий тон
+        osc.frequency.setValueAtTime(1200, audioCtx.currentTime); // Очень резкий тон
         
-        // Делаем звук прерывистым (бип-бип)
-        gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.4);
+        gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.5);
         
         osc.connect(gain);
         gain.connect(audioCtx.destination);
-        
         osc.start();
-        osc.stop(audioCtx.currentTime + 0.4);
+        osc.stop(audioCtx.currentTime + 0.5);
     }
 
-    // 2. Очистка
-    function clearAll() {
-        document.getElementById('codesInput').value = '';
-        document.getElementById('lastMatch').innerText = '';
-        document.getElementById('status').innerText = 'Список очищен';
-        targetCodes.clear();
-        if (html5QrCode) {
-            html5QrCode.stop();
-            document.getElementById('startBtn').style.display = 'block';
-        }
-    }
-
-    // 3. Основная логика поиска
-    function startSearch() {
+    // 2. Переход к сканированию
+    function startApp() {
         const input = document.getElementById('codesInput').value;
         const lines = input.split('\n').map(s => s.trim()).filter(s => s !== "");
         
         if (lines.length === 0) {
-            alert("Сначала вставьте список ID для поиска!");
+            alert("Пожалуйста, добавьте ID для поиска.");
             return;
         }
 
         targetCodes = new Set(lines);
-        document.getElementById('status').innerText = `Ищем объектов: ${targetCodes.size}`;
-        document.getElementById('startBtn').style.display = 'none';
-
-        // Инициализация камеры
-        html5QrCode = new Html5Qrcode("reader");
+        foundCodes.clear(); // Очищаем историю при новом запуске
         
-        const config = { 
-            fps: 20, // Высокая частота кадров для быстрого сканирования
-            qrbox: { width: 280, height: 280 },
-            aspectRatio: 1.0
-        };
+        document.getElementById('foundItemsList').innerHTML = ''; // Очищаем UI список
+        updateProgress();
 
+        // Переключаем экраны
+        document.getElementById('screenSetup').style.display = 'none';
+        document.getElementById('screenScanner').style.display = 'block';
+
+        initCamera();
+    }
+
+    // 3. Запуск камеры
+    function initCamera() {
+        html5QrCode = new Html5Qrcode("reader");
         html5QrCode.start(
             { facingMode: "environment" }, 
-            config,
+            { fps: 15, qrbox: { width: 280, height: 280 }, aspectRatio: 1.0 },
             (decodedText) => {
-                // ЛОГИКА ОБРАБОТКИ ВАШЕГО ФОРМАТА
-                // Извлекаем ID из строки типа $1:1:4889547669:5226
-                const parts = decodedText.split(':');
-                const extractedId = parts[2]; // Берем элемент между 2-м и 3-м двоеточием
+                try {
+                    // Извлекаем ID (ваш формат $1:1:ID:1234)
+                    const parts = decodedText.split(':');
+                    const extractedId = parts[2];
 
-                if (extractedId && targetCodes.has(extractedId)) {
-                    handleMatch(extractedId);
-                }
+                    if (extractedId && targetCodes.has(extractedId)) {
+                        registerFind(extractedId);
+                    }
+                } catch (e) { console.warn("Формат кода не распознан", e); }
             },
-            (errorMessage) => {
-                // Ошибки сканирования игнорируем, чтобы не спамить в консоль
-            }
+            (err) => { /* Игнорируем ошибки поиска фокуса */ }
         ).catch(err => {
-            alert("Ошибка запуска камеры. Убедитесь, что используете HTTPS!");
-            document.getElementById('startBtn').style.display = 'block';
+            alert("Ошибка доступа к камере. Убедитесь, что разрешили доступ и используете HTTPS.");
+            stopApp();
         });
     }
 
-    // 4. Действие при совпадении
-    function handleMatch(id) {
+    // 4. Логика при совпадении
+    function registerFind(id) {
+        // Если уже находили этот код в текущей сессии - игнорируем, чтобы не спамить
+        if (foundCodes.has(id)) return;
+
+        foundCodes.add(id);
         playAlarm();
         
-        // Вибрация (если поддерживается)
         if (navigator.vibrate) navigator.vibrate([300, 100, 300]);
 
-        // Визуальная индикация
+        // Мигание экрана
         const body = document.getElementById('mainBody');
-        const display = document.getElementById('lastMatch');
+        body.classList.remove('alarm-flash');
+        void body.offsetWidth; // Хак для перезапуска анимации
+        body.classList.add('alarm-flash');
+
+        // Добавление в UI список
+        const list = document.getElementById('foundItemsList');
+        const li = document.createElement('li');
+        const now = new Date();
+        const timeString = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}:${now.getSeconds().toString().padStart(2, '0')}`;
         
-        display.innerText = "НАЙДЕН: " + id;
-        body.classList.add('found-match');
+        li.innerHTML = `<strong>${id}</strong> <span class="time">${timeString}</span>`;
+        list.insertBefore(li, list.firstChild); // Добавляем наверх списка
+
+        updateProgress();
+    }
+
+    // 5. Обновление счетчика
+    function updateProgress() {
+        document.getElementById('progressCounter').innerText = `${foundCodes.size} / ${targetCodes.size}`;
         
-        // Выключаем мигание через 2 секунды, чтобы можно было искать дальше
-        setTimeout(() => {
-            body.classList.remove('found-match');
-        }, 2000);
+        if (foundCodes.size === targetCodes.size && targetCodes.size > 0) {
+            setTimeout(() => alert("ПОЗДРАВЛЯЕМ! Все коды из списка найдены!"), 500);
+        }
+    }
+
+    // 6. Выгрузка в TXT (или CSV)
+    function exportResults() {
+        if (foundCodes.size === 0) {
+            alert("Пока ничего не найдено для выгрузки.");
+            return;
+        }
+
+        // Формируем содержимое файла
+        let fileContent = "ID;Time_Found\n";
+        const listItems = document.querySelectorAll('#foundItemsList li');
+        listItems.forEach(item => {
+            const id = item.querySelector('strong').innerText;
+            const time = item.querySelector('.time').innerText;
+            fileContent += `${id};${time}\n`;
+        });
+
+        // Создаем и скачиваем файл
+        const blob = new Blob([fileContent], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement("a");
+        const url = URL.createObjectURL(blob);
+        
+        link.setAttribute("href", url);
+        link.setAttribute("download", `Найдено_Склад_${new Date().toLocaleDateString('ru-RU')}.csv`);
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    }
+
+    // 7. Остановка и возврат на главный экран
+    function stopApp() {
+        if (html5QrCode) {
+            html5QrCode.stop().then(() => {
+                document.getElementById('screenScanner').style.display = 'none';
+                document.getElementById('screenSetup').style.display = 'block';
+            }).catch(err => console.error(err));
+        }
     }
 </script>
 
