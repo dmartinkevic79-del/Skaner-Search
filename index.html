@@ -8,11 +8,11 @@
     <style>
         /* Принудительная темная тема */
         :root {
-            --bg: #000000; /* Чистый черный для экономии заряда */
-            --card-bg: #111827; /* Темно-серый/синий */
-            --primary: #4f46e5;
-            --success: #059669;
-            --danger: #dc2626;
+            --bg: #000000;
+            --card-bg: #111827;
+            --primary: #3b82f6; /* Синий для кнопки копирования */
+            --success: #10b981;
+            --danger: #ef4444;
             --text: #f3f4f6;
             --text-dim: #9ca3af;
             --border: #374151;
@@ -48,7 +48,7 @@
             width: 100%;
             height: 140px;
             background: #000;
-            color: #22c55e; /* Текст в поле ввода будет зеленым, как в терминале */
+            color: #22c55e;
             border: 1px solid var(--border);
             border-radius: 10px;
             padding: 12px;
@@ -69,12 +69,11 @@
             display: flex;
             justify-content: center;
             align-items: center;
-            gap: 10px;
             transition: 0.2s;
         }
 
-        .btn-start { background: var(--primary); margin-top: 15px; }
-        .btn-export { background: var(--success); }
+        .btn-start { background: var(--success); margin-top: 15px; }
+        .btn-copy { background: var(--primary); }
         .btn-stop { background: transparent; border: 1px solid var(--danger); color: var(--danger); }
 
         #reader {
@@ -84,7 +83,7 @@
             border: 1px solid var(--border);
         }
 
-        /* Панель статистики */
+        /* Новая панель статистики */
         .stats {
             display: flex;
             justify-content: space-between;
@@ -92,12 +91,14 @@
             padding: 15px;
             border-radius: 12px;
             margin: 10px 0;
-            border-left: 4px solid var(--primary);
         }
 
-        .stats-item { display: flex; flex-direction: column; }
-        .label { font-size: 12px; color: var(--text-dim); text-transform: uppercase; }
-        .val { font-size: 20px; font-weight: bold; }
+        .stats-item { display: flex; flex-direction: column; width: 50%; }
+        .label { font-size: 13px; text-transform: uppercase; font-weight: bold; margin-bottom: 5px; }
+        .val { font-size: 24px; font-weight: bold; }
+
+        .color-success { color: #10b981; }
+        .color-danger { color: #ef4444; }
 
         /* Список найденного */
         .found-list {
@@ -120,7 +121,6 @@
 
         .found-list li strong { color: #10b981; }
 
-        /* Эффект тревоги */
         .alarm-flash { animation: flash-red 0.5s infinite; }
         @keyframes flash-red {
             0% { background: var(--bg); }
@@ -135,9 +135,9 @@
 
 <div class="container">
     <div id="screenSetup" class="card">
-        <h2>Загрузка ID</h2>
-        <textarea id="codesInput" placeholder="Вставьте ID сюда..."></textarea>
-        <button class="btn-start" onclick="startApp()">ЗАПУСТИТЬ</button>
+        <h2>Складской Поиск</h2>
+        <textarea id="codesInput" placeholder="Вставьте список ID сюда..."></textarea>
+        <button class="btn-start" onclick="startApp()">НАЧАТЬ ПОИСК</button>
     </div>
 
     <div id="screenScanner">
@@ -147,19 +147,19 @@
 
         <div class="stats">
             <div class="stats-item">
-                <span class="label">Найдено</span>
-                <span class="val" id="progressCounter">0 / 0</span>
+                <span class="label color-success">Найдено:</span>
+                <span class="val" id="countFound">0</span>
             </div>
             <div class="stats-item" style="text-align: right;">
-                <span class="label">Таймер</span>
-                <span class="val" id="sessionTimer">00:00</span>
+                <span class="label color-danger">Осталось найти:</span>
+                <span class="val" id="countLeft">0</span>
             </div>
         </div>
 
         <div class="card">
             <ul class="found-list" id="foundItemsList"></ul>
             <div style="display: flex; gap: 10px; margin-top: 15px;">
-                <button class="btn-export" onclick="exportResults()">CSV</button>
+                <button class="btn-copy" id="copyBtn" onclick="copyToClipboard()">СКОПИРОВАТЬ</button>
                 <button class="btn-stop" onclick="stopApp()">ВЫХОД</button>
             </div>
         </div>
@@ -170,8 +170,6 @@
     let targetCodes = new Set();
     let foundCodes = new Set();
     let html5QrCode;
-    let timer;
-    let sec = 0;
     const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 
     function playSound() {
@@ -186,67 +184,103 @@
         osc.start(); osc.stop(audioCtx.currentTime + 0.5);
     }
 
+    function updateCounters() {
+        const total = targetCodes.size;
+        const found = foundCodes.size;
+        const left = total - found;
+
+        document.getElementById('countFound').innerText = found;
+        document.getElementById('countLeft').innerText = left;
+
+        if (left === 0 && total > 0) {
+            setTimeout(() => alert("Отлично! Все ID из списка найдены."), 300);
+        }
+    }
+
     function startApp() {
         const input = document.getElementById('codesInput').value;
         const lines = input.split('\n').map(s => s.trim()).filter(s => s !== "");
-        if (!lines.length) return alert("Введите ID!");
+        if (!lines.length) return alert("Введите ID для поиска!");
 
         targetCodes = new Set(lines);
         foundCodes.clear();
         document.getElementById('foundItemsList').innerHTML = '';
+        updateCounters();
         
         document.getElementById('screenSetup').style.display = 'none';
         document.getElementById('screenScanner').style.display = 'block';
-        
-        sec = 0;
-        timer = setInterval(() => {
-            sec++;
-            document.getElementById('sessionTimer').innerText = 
-                `${Math.floor(sec/60).toString().padStart(2,'0')}:${(sec%60).toString().padStart(2,'0')}`;
-        }, 1000);
 
         html5QrCode = new Html5Qrcode("reader");
         html5QrCode.start(
             { facingMode: "environment" }, 
             { fps: 20, qrbox: 250 },
             (text) => {
-                const id = text.split(':')[2];
+                const parts = text.split(':');
+                const id = parts[2]; // Извлекаем ID (между 2 и 3 двоеточием)
+                
                 if (id && targetCodes.has(id) && !foundCodes.has(id)) {
                     foundCodes.add(id);
                     playSound();
-                    if (navigator.vibrate) navigator.vibrate(400);
+                    if (navigator.vibrate) navigator.vibrate([300, 100, 300]);
                     
                     const b = document.getElementById('mainBody');
                     b.classList.add('alarm-flash');
                     setTimeout(() => b.classList.remove('alarm-flash'), 1000);
 
                     const li = document.createElement('li');
-                    li.innerHTML = `<strong>${id}</strong> <span>${new Date().toLocaleTimeString()}</span>`;
+                    li.innerHTML = `<strong>${id}</strong> <span>${new Date().toLocaleTimeString('ru-RU')}</span>`;
                     document.getElementById('foundItemsList').prepend(li);
                     
-                    document.getElementById('progressCounter').innerText = `${foundCodes.size} / ${targetCodes.size}`;
+                    updateCounters();
                 }
             }, () => {}
-        );
+        ).catch(err => {
+            alert("Ошибка доступа к камере. Включите камеру и используйте HTTPS.");
+            stopApp();
+        });
     }
 
-    function exportResults() {
-        let csv = "ID;Time\n";
-        foundCodes.forEach(id => csv += id + ";" + new Date().toLocaleTimeString() + "\n");
-        const blob = new Blob([csv], {type: 'text/csv'});
-        const a = document.createElement('a');
-        a.href = URL.createObjectURL(blob);
-        a.download = 'export.csv';
-        a.click();
+    // Логика копирования для мессенджеров
+    function copyToClipboard() {
+        if (foundCodes.size === 0) {
+            alert("Список пуст, копировать нечего.");
+            return;
+        }
+
+        // Формируем красивый текст
+        let textToCopy = `📦 Найденные товары (${foundCodes.size} шт.):\n`;
+        foundCodes.forEach(id => {
+            textToCopy += `${id}\n`;
+        });
+
+        navigator.clipboard.writeText(textToCopy).then(() => {
+            // Визуальный отклик на кнопке
+            const btn = document.getElementById('copyBtn');
+            const originalText = btn.innerText;
+            const originalColor = btn.style.background;
+            
+            btn.innerText = "✓ СКОПИРОВАНО";
+            btn.style.background = "#10b981"; // Меняем цвет на зеленый
+            
+            // Возвращаем кнопку в исходное состояние через 2 секунды
+            setTimeout(() => {
+                btn.innerText = originalText;
+                btn.style.background = originalColor;
+            }, 2000);
+        }).catch(err => {
+            alert("Ошибка буфера обмена. Попробуйте обновить страницу.");
+        });
     }
 
     function stopApp() {
-        html5QrCode.stop().then(() => {
-            clearInterval(timer);
-            location.reload(); // Полная перезагрузка для сброса состояния
-        });
+        if (html5QrCode) {
+            html5QrCode.stop().then(() => {
+                location.reload(); // Перезагрузка для чистого старта
+            }).catch(() => location.reload());
+        } else {
+            location.reload();
+        }
     }
 </script>
 </body>
 </html>
-
