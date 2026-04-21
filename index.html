@@ -6,11 +6,10 @@
     <title>Sklad Scanner Dark Pro</title>
     <script src="https://unpkg.com/html5-qrcode"></script>
     <style>
-        /* Принудительная темная тема */
         :root {
             --bg: #000000;
             --card-bg: #111827;
-            --primary: #3b82f6; /* Синий для кнопки копирования */
+            --primary: #3b82f6; 
             --success: #10b981;
             --danger: #ef4444;
             --text: #f3f4f6;
@@ -20,113 +19,66 @@
 
         body {
             font-family: -apple-system, system-ui, sans-serif;
-            margin: 0;
-            padding: 0;
+            margin: 0; padding: 0;
             background-color: var(--bg) !important;
             color: var(--text) !important;
             min-height: 100vh;
         }
 
-        .container {
-            max-width: 500px;
-            margin: 0 auto;
-            padding: 15px;
-        }
+        .container { max-width: 500px; margin: 0 auto; padding: 15px; }
 
         .card {
-            background: var(--card-bg);
-            border-radius: 16px;
-            padding: 20px;
-            border: 1px solid var(--border);
-            margin-bottom: 15px;
+            background: var(--card-bg); border-radius: 16px; padding: 20px;
+            border: 1px solid var(--border); margin-bottom: 15px;
             box-shadow: 0 4px 20px rgba(0,0,0,0.5);
         }
 
         h2 { color: var(--text); text-align: center; margin-top: 0; }
 
         textarea {
-            width: 100%;
-            height: 140px;
-            background: #000;
-            color: #22c55e;
-            border: 1px solid var(--border);
-            border-radius: 10px;
-            padding: 12px;
-            font-family: monospace;
-            font-size: 16px;
-            box-sizing: border-box;
+            width: 100%; height: 140px; background: #000; color: #22c55e;
+            border: 1px solid var(--border); border-radius: 10px; padding: 12px;
+            font-family: monospace; font-size: 16px; box-sizing: border-box;
         }
 
         button {
-            width: 100%;
-            padding: 16px;
-            border-radius: 12px;
-            border: none;
-            font-size: 16px;
-            font-weight: bold;
-            color: white;
-            cursor: pointer;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            transition: 0.2s;
+            width: 100%; padding: 16px; border-radius: 12px; border: none;
+            font-size: 16px; font-weight: bold; color: white;
+            cursor: pointer; display: flex; justify-content: center; align-items: center;
+            transition: 0.2s; text-transform: uppercase;
         }
+        button:active { transform: scale(0.96); }
 
         .btn-start { background: var(--success); margin-top: 15px; }
+        .btn-clear { background: transparent; border: 2px solid var(--danger); color: var(--danger); margin-top: 10px; }
+        
         .btn-copy { background: var(--primary); }
-        .btn-stop { background: transparent; border: 1px solid var(--danger); color: var(--danger); }
+        .btn-stop { background: transparent; border: 1px solid var(--text-dim); color: var(--text-dim); }
 
-        #reader {
-            border-radius: 12px;
-            overflow: hidden;
-            background: #000;
-            border: 1px solid var(--border);
-        }
+        #reader { border-radius: 12px; overflow: hidden; background: #000; border: 1px solid var(--border); }
 
-        /* Новая панель статистики */
         .stats {
-            display: flex;
-            justify-content: space-between;
-            background: #1f2937;
-            padding: 15px;
-            border-radius: 12px;
-            margin: 10px 0;
+            display: flex; justify-content: space-between; background: #1f2937;
+            padding: 15px; border-radius: 12px; margin: 10px 0;
         }
-
         .stats-item { display: flex; flex-direction: column; width: 50%; }
         .label { font-size: 13px; text-transform: uppercase; font-weight: bold; margin-bottom: 5px; }
         .val { font-size: 24px; font-weight: bold; }
-
         .color-success { color: #10b981; }
         .color-danger { color: #ef4444; }
 
-        /* Список найденного */
         .found-list {
-            list-style: none;
-            padding: 0;
-            margin: 0;
-            max-height: 180px;
-            overflow-y: auto;
-            border: 1px solid var(--border);
-            border-radius: 10px;
+            list-style: none; padding: 0; margin: 0; max-height: 180px;
+            overflow-y: auto; border: 1px solid var(--border); border-radius: 10px;
         }
-
         .found-list li {
-            padding: 12px;
-            border-bottom: 1px solid var(--border);
-            display: flex;
-            justify-content: space-between;
-            font-size: 14px;
+            padding: 12px; border-bottom: 1px solid var(--border);
+            display: flex; justify-content: space-between; font-size: 14px;
         }
-
         .found-list li strong { color: #10b981; }
 
         .alarm-flash { animation: flash-red 0.5s infinite; }
-        @keyframes flash-red {
-            0% { background: var(--bg); }
-            50% { background: #7f1d1d; }
-            100% { background: var(--bg); }
-        }
+        @keyframes flash-red { 0%, 100% { background: var(--bg); } 50% { background: #7f1d1d; } }
 
         #screenScanner { display: none; }
     </style>
@@ -137,7 +89,8 @@
     <div id="screenSetup" class="card">
         <h2>Складской Поиск</h2>
         <textarea id="codesInput" placeholder="Вставьте список ID сюда..."></textarea>
-        <button class="btn-start" onclick="startApp()">НАЧАТЬ ПОИСК</button>
+        <button class="btn-start" id="startBtn" onclick="startApp()">НАЧАТЬ ПОИСК</button>
+        <button class="btn-clear" onclick="clearMemory()">🗑 СБРОСИТЬ ПАМЯТЬ</button>
     </div>
 
     <div id="screenScanner">
@@ -151,7 +104,7 @@
                 <span class="val" id="countFound">0</span>
             </div>
             <div class="stats-item" style="text-align: right;">
-                <span class="label color-danger">Осталось найти:</span>
+                <span class="label color-danger">Осталось:</span>
                 <span class="val" id="countLeft">0</span>
             </div>
         </div>
@@ -160,7 +113,7 @@
             <ul class="found-list" id="foundItemsList"></ul>
             <div style="display: flex; gap: 10px; margin-top: 15px;">
                 <button class="btn-copy" id="copyBtn" onclick="copyToClipboard()">СКОПИРОВАТЬ</button>
-                <button class="btn-stop" onclick="stopApp()">ВЫХОД</button>
+                <button class="btn-stop" onclick="pauseApp()">НАЗАД</button>
             </div>
         </div>
     </div>
@@ -169,8 +122,47 @@
 <script>
     let targetCodes = new Set();
     let foundCodes = new Set();
+    let foundLog = []; // Хранит историю {id, time} для восстановления списка
     let html5QrCode;
     const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+    // ВОССТАНОВЛЕНИЕ ДАННЫХ ПРИ ЗАГРУЗКЕ СТРАНИЦЫ
+    window.onload = () => {
+        const savedInput = localStorage.getItem('codesInput');
+        const savedTargets = localStorage.getItem('targetCodes');
+        const savedFound = localStorage.getItem('foundCodes');
+        const savedLog = localStorage.getItem('foundLog');
+
+        if (savedInput) document.getElementById('codesInput').value = savedInput;
+        if (savedTargets) targetCodes = new Set(JSON.parse(savedTargets));
+        if (savedFound) foundCodes = new Set(JSON.parse(savedFound));
+        if (savedLog) foundLog = JSON.parse(savedLog);
+
+        if (targetCodes.size > 0 || foundCodes.size > 0) {
+            document.getElementById('startBtn').innerText = "ПРОДОЛЖИТЬ СЕАНС";
+        }
+    };
+
+    // Функция сохранения состояния
+    function saveState() {
+        localStorage.setItem('codesInput', document.getElementById('codesInput').value);
+        localStorage.setItem('targetCodes', JSON.stringify(Array.from(targetCodes)));
+        localStorage.setItem('foundCodes', JSON.stringify(Array.from(foundCodes)));
+        localStorage.setItem('foundLog', JSON.stringify(foundLog));
+    }
+
+    // Полная очистка
+    function clearMemory() {
+        if (confirm("ВНИМАНИЕ! Это удалит список и найденные товары. Продолжить?")) {
+            localStorage.clear();
+            targetCodes.clear();
+            foundCodes.clear();
+            foundLog = [];
+            document.getElementById('codesInput').value = '';
+            document.getElementById('startBtn').innerText = "НАЧАТЬ ПОИСК";
+            alert("Память очищена.");
+        }
+    }
 
     function playSound() {
         if (audioCtx.state === 'suspended') audioCtx.resume();
@@ -188,38 +180,52 @@
         const total = targetCodes.size;
         const found = foundCodes.size;
         const left = total - found;
-
         document.getElementById('countFound').innerText = found;
         document.getElementById('countLeft').innerText = left;
+    }
 
-        if (left === 0 && total > 0) {
-            setTimeout(() => alert("Отлично! Все ID из списка найдены."), 300);
-        }
+    function renderList() {
+        const list = document.getElementById('foundItemsList');
+        list.innerHTML = '';
+        foundLog.forEach(item => {
+            const li = document.createElement('li');
+            li.innerHTML = `<strong>${item.id}</strong> <span>${item.time}</span>`;
+            list.appendChild(li);
+        });
     }
 
     function startApp() {
+        // Парсим новые данные, если они были изменены
         const input = document.getElementById('codesInput').value;
         const lines = input.split('\n').map(s => s.trim()).filter(s => s !== "");
         if (!lines.length) return alert("Введите ID для поиска!");
 
         targetCodes = new Set(lines);
-        foundCodes.clear();
-        document.getElementById('foundItemsList').innerHTML = '';
+        saveState(); // Сохраняем перед запуском камеры
+        
         updateCounters();
+        renderList();
         
         document.getElementById('screenSetup').style.display = 'none';
         document.getElementById('screenScanner').style.display = 'block';
 
         html5QrCode = new Html5Qrcode("reader");
+        
+        // ОПТИМИЗАЦИЯ: fps: 10 разгружает процессор и спасает от зависаний
         html5QrCode.start(
             { facingMode: "environment" }, 
-            { fps: 20, qrbox: 250 },
+            { fps: 10, qrbox: 250 },
             (text) => {
                 const parts = text.split(':');
-                const id = parts[2]; // Извлекаем ID (между 2 и 3 двоеточием)
+                const id = parts[2]; 
                 
                 if (id && targetCodes.has(id) && !foundCodes.has(id)) {
                     foundCodes.add(id);
+                    
+                    // Добавляем в начало истории
+                    foundLog.unshift({ id: id, time: new Date().toLocaleTimeString('ru-RU') });
+                    saveState(); // СОХРАНЯЕМ сразу после находки
+                    
                     playSound();
                     if (navigator.vibrate) navigator.vibrate([300, 100, 300]);
                     
@@ -227,55 +233,40 @@
                     b.classList.add('alarm-flash');
                     setTimeout(() => b.classList.remove('alarm-flash'), 1000);
 
-                    const li = document.createElement('li');
-                    li.innerHTML = `<strong>${id}</strong> <span>${new Date().toLocaleTimeString('ru-RU')}</span>`;
-                    document.getElementById('foundItemsList').prepend(li);
-                    
+                    renderList();
                     updateCounters();
                 }
-            }, () => {}
+            }, () => { /* игнорируем ошибки фокуса для оптимизации */ }
         ).catch(err => {
-            alert("Ошибка доступа к камере. Включите камеру и используйте HTTPS.");
-            stopApp();
+            alert("Ошибка камеры.");
+            pauseApp();
         });
     }
 
-    // Логика копирования для мессенджеров
     function copyToClipboard() {
-        if (foundCodes.size === 0) {
-            alert("Список пуст, копировать нечего.");
-            return;
-        }
-
-        // Формируем красивый текст
+        if (foundCodes.size === 0) return alert("Нечего копировать.");
+        
         let textToCopy = `📦 Найденные товары (${foundCodes.size} шт.):\n`;
-        foundCodes.forEach(id => {
-            textToCopy += `${id}\n`;
-        });
+        foundLog.forEach(item => { textToCopy += `${item.id}\n`; });
 
         navigator.clipboard.writeText(textToCopy).then(() => {
-            // Визуальный отклик на кнопке
             const btn = document.getElementById('copyBtn');
-            const originalText = btn.innerText;
-            const originalColor = btn.style.background;
-            
             btn.innerText = "✓ СКОПИРОВАНО";
-            btn.style.background = "#10b981"; // Меняем цвет на зеленый
-            
-            // Возвращаем кнопку в исходное состояние через 2 секунды
+            btn.style.background = "#10b981"; 
             setTimeout(() => {
-                btn.innerText = originalText;
-                btn.style.background = originalColor;
+                btn.innerText = "СКОПИРОВАТЬ";
+                btn.style.background = "var(--primary)";
             }, 2000);
-        }).catch(err => {
-            alert("Ошибка буфера обмена. Попробуйте обновить страницу.");
         });
     }
 
-    function stopApp() {
+    // Возврат на главный экран (остановка камеры, данные сохраняются)
+    function pauseApp() {
         if (html5QrCode) {
             html5QrCode.stop().then(() => {
-                location.reload(); // Перезагрузка для чистого старта
+                document.getElementById('screenScanner').style.display = 'none';
+                document.getElementById('screenSetup').style.display = 'block';
+                document.getElementById('startBtn').innerText = "ПРОДОЛЖИТЬ СЕАНС";
             }).catch(() => location.reload());
         } else {
             location.reload();
