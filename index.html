@@ -7,7 +7,6 @@
     <title>Sklad Scanner Pro</title>
     
     <link rel="manifest" id="manifest-placeholder">
-    
     <script src="https://unpkg.com/html5-qrcode"></script>
     <style>
         :root {
@@ -17,15 +16,14 @@
             --danger: #ef4444;
             --text: #f3f4f6;
             --border: #374151;
-            --warning: #f59e0b;
         }
 
         body {
             font-family: -apple-system, system-ui, sans-serif;
             margin: 0; padding: 0;
             background-color: var(--bg); color: var(--text);
-            min-height: 100vh; 
-            /* Убрано overflow: hidden, чтобы можно было прокрутить до подписи */
+            min-height: 100vh;
+            display: flex; flex-direction: column;
         }
 
         #flashOverlay {
@@ -33,10 +31,14 @@
             z-index: 9999; display: none; pointer-events: none;
         }
 
-        .container { max-width: 500px; margin: 0 auto; padding: 15px; position: relative; z-index: 10; min-height: 100vh; display: flex; flex-direction: column; }
+        .container { 
+            max-width: 500px; margin: 0 auto; padding: 15px; 
+            width: 100%; box-sizing: border-box; flex: 1;
+            display: flex; flex-direction: column;
+        }
 
         .card {
-            background: var(--card-bg); border-radius: 16px; padding: 20px;
+            background: var(--card-bg); border-radius: 16px; padding: 15px;
             border: 1px solid var(--border); margin-bottom: 15px;
         }
 
@@ -44,42 +46,238 @@
             width: 100%; height: 120px; background: #000; color: #22c55e;
             border: 1px solid var(--border); border-radius: 10px; padding: 12px;
             font-family: monospace; font-size: 16px; box-sizing: border-box;
-            resize: none;
+            resize: none; outline: none;
         }
 
         button {
             width: 100%; padding: 16px; border-radius: 12px; border: none;
-            font-size: 16px; font-weight: bold; color: white; cursor: pointer;
+            font-size: 14px; font-weight: bold; color: white; cursor: pointer;
             text-transform: uppercase; transition: 0.1s;
         }
         button:active { opacity: 0.7; }
 
         .btn-start { background: var(--success); margin-top: 10px; }
         .btn-clear { background: transparent; border: 2px solid var(--danger); color: var(--danger); margin-top: 10px; }
-        .btn-copy { background: #3b82f6; flex-grow: 2; }
-        .btn-stop { background: transparent; border: 1px solid #9ca3af; color: #9ca3af; flex-grow: 1; }
+        .btn-copy { background: #3b82f6; flex: 2; }
+        .btn-stop { background: transparent; border: 1px solid #9ca3af; color: #9ca3af; flex: 1; }
+        .btn-torch { 
+            background: #f59e0b; color: #000; margin-bottom: 10px;
+            display: none; /* Покажется только при работе камеры */
+        }
 
         #reader { border-radius: 12px; overflow: hidden; background: #000; border: 1px solid var(--border); }
 
         .stats {
             display: flex; justify-content: space-between; background: #1f2937;
-            padding: 15px; border-radius: 12px; margin: 10px 0;
+            padding: 15px; border-radius: 12px; margin-bottom: 15px;
         }
-        .val { font-size: 26px; font-weight: 900; display: block; }
-        .label { font-size: 12px; opacity: 0.7; font-weight: bold; }
+        .val { font-size: 24px; font-weight: 900; display: block; }
+        .label { font-size: 11px; opacity: 0.7; font-weight: bold; }
 
         .found-list {
-            list-style: none; padding: 0; margin: 0; max-height: 180px;
+            list-style: none; padding: 0; margin: 0; max-height: 150px;
             overflow-y: auto; border: 1px solid var(--border); border-radius: 10px;
         }
         .found-list li {
-            padding: 10px; border-bottom: 1px solid var(--border);
+            padding: 8px 12px; border-bottom: 1px solid var(--border);
             display: flex; justify-content: space-between; font-size: 14px; align-items: center;
         }
-        .found-list li strong { color: var(--success); font-family: monospace; font-size: 15px; }
-        .time-tag { font-size: 11px; color: #9ca3af; background: #374151; padding: 2px 6px; border-radius: 4px; }
+        .found-list li strong { color: var(--success); font-family: monospace; }
 
         .error-msg {
             background: rgba(239, 68, 68, 0.1); border: 1px solid var(--danger);
-            color: #fca
+            color: #fca5a5; padding: 12px; border-radius: 10px; font-size: 13px;
+            margin-bottom: 15px; display: none; text-align: center;
+        }
 
+        .attribution {
+            text-align: center; font-size: 10px; color: #4b5563;
+            padding: 15px 0; text-transform: uppercase;
+            letter-spacing: 1.5px; opacity: 0.8;
+            width: 100%; background: var(--bg);
+        }
+        
+        #screenScanner { display: none; flex-direction: column; }
+    </style>
+</head>
+<body>
+
+<div id="flashOverlay"></div>
+
+<div class="container">
+    <div id="screenSetup">
+        <div class="card">
+            <h2 style="margin-top:0; font-size: 20px;">Накладная</h2>
+            <div id="cameraError" class="error-msg">Ошибка камеры. Проверьте разрешения.</div>
+            <textarea id="codesInput" placeholder="Вставьте список ID сюда..."></textarea>
+            <button class="btn-start" id="startBtn" onclick="startApp()">ЗАПУСТИТЬ ПОИСК</button>
+            <button class="btn-clear" onclick="clearMemory()">🗑 СБРОСИТЬ ВСЁ</button>
+        </div>
+    </div>
+
+    <div id="screenScanner">
+        <button id="torchBtn" class="btn-torch" onclick="toggleTorch()">🔦 ФОНАРИК: ВЫКЛ</button>
+        
+        <div class="card" style="padding: 5px;">
+            <div id="reader"></div>
+        </div>
+
+        <div class="stats">
+            <div><span class="label" style="color:var(--success)">НАЙДЕНО</span><span class="val" id="countFound" style="color:var(--success)">0</span></div>
+            <div style="text-align:right"><span class="label" style="color:var(--danger)">ОСТАЛОСЬ</span><span class="val" id="countLeft" style="color:var(--danger)">0</span></div>
+        </div>
+
+        <div class="card" style="margin-bottom: 5px;">
+            <ul class="found-list" id="foundItemsList"></ul>
+            <div style="display: flex; gap: 10px; margin-top: 15px;">
+                <button class="btn-copy" id="copyBtn" onclick="copyToClipboard()">КОПИРОВАТЬ</button>
+                <button class="btn-stop" onclick="pauseApp()">НАЗАД</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="attribution">
+    developed by D. Martinkevich for SofrinoKBT
+</div>
+
+<script>
+    // --- PWA & OFFLINE ---
+    const swCode = `
+        const CACHE_NAME = 'sklad-scanner-v3';
+        const urlsToCache = [ location.href, 'https://unpkg.com/html5-qrcode' ];
+        self.addEventListener('install', e => e.waitUntil(caches.open(CACHE_NAME).then(c => c.addAll(urlsToCache))));
+        self.addEventListener('fetch', e => e.respondWith(caches.match(e.request).then(r => r || fetch(e.request))));
+    `;
+    const swBlob = new Blob([swCode], { type: 'application/javascript' });
+    if ('serviceWorker' in navigator) navigator.serviceWorker.register(URL.createObjectURL(swBlob));
+
+    const manifest = { name: "Sklad Scanner Pro", short_name: "Scanner", display: "standalone", start_url: location.href };
+    document.getElementById('manifest-placeholder').href = URL.createObjectURL(new Blob([JSON.stringify(manifest)], { type: 'application/json' }));
+
+    // --- LOGIC ---
+    let targetCodes = new Set();
+    let foundCodes = new Set();
+    let foundLog = [];
+    let html5QrCode;
+    let wakeLock = null;
+    let isTorchOn = false;
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+    window.onload = () => {
+        const savedInput = localStorage.getItem('codesInput');
+        const savedFound = localStorage.getItem('foundCodes');
+        const savedLog = localStorage.getItem('foundLog');
+        if (savedInput) document.getElementById('codesInput').value = savedInput;
+        if (savedFound) foundCodes = new Set(JSON.parse(savedFound));
+        if (savedLog) foundLog = JSON.parse(savedLog);
+        if (savedInput) document.getElementById('startBtn').innerText = "ПРОДОЛЖИТЬ СЕАНС";
+    };
+
+    async function toggleTorch() {
+        if (!html5QrCode) return;
+        try {
+            isTorchOn = !isTorchOn;
+            await html5QrCode.applyVideoConstraints({ advanced: [{ torch: isTorchOn }] });
+            document.getElementById('torchBtn').innerText = isTorchOn ? "🔦 ФОНАРИК: ВКЛ" : "🔦 ФОНАРИК: ВЫКЛ";
+        } catch (err) {
+            console.error("Фонарик не поддерживается", err);
+        }
+    }
+
+    async function startApp() {
+        const input = document.getElementById('codesInput').value;
+        const lines = input.split('\n').map(s => s.trim()).filter(s => s !== "");
+        if (!lines.length) return alert("Введите список ID!");
+
+        targetCodes = new Set(lines);
+        document.getElementById('screenSetup').style.display = 'none';
+        document.getElementById('screenScanner').style.display = 'flex';
+        updateUI();
+
+        if ('wakeLock' in navigator) wakeLock = await navigator.wakeLock.request('screen');
+
+        if (!html5QrCode) html5QrCode = new Html5Qrcode("reader");
+
+        try {
+            await html5QrCode.start(
+                { facingMode: "environment" }, 
+                { fps: 15, qrbox: 250 },
+                (text) => {
+                    const id = text.split(':')[2] || text; 
+                    if (targetCodes.has(id)) {
+                        triggerFeedback('success');
+                        if (!foundCodes.has(id)) {
+                            foundCodes.add(id);
+                            foundLog.unshift({ id, time: new Date().toLocaleTimeString('ru-RU') });
+                            saveState();
+                            updateUI();
+                        }
+                    } else {
+                        triggerFeedback('fail');
+                    }
+                }
+            );
+            
+            // Проверяем поддержку фонарика после старта
+            const capabilities = html5QrCode.getRunningTrackCapabilities();
+            if (capabilities.torch) {
+                document.getElementById('torchBtn').style.display = 'block';
+            }
+        } catch (err) {
+            document.getElementById('cameraError').style.display = 'block';
+            pauseApp();
+        }
+    }
+
+    function triggerFeedback(type) {
+        const overlay = document.getElementById('flashOverlay');
+        overlay.style.backgroundColor = type === 'success' ? 'rgba(16, 185, 129, 0.6)' : 'rgba(239, 68, 68, 0.6)';
+        if (type === 'success') {
+            const osc = audioCtx.createOscillator();
+            const g = audioCtx.createGain();
+            osc.frequency.setValueAtTime(1000, audioCtx.currentTime);
+            g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.1);
+            osc.connect(g); g.connect(audioCtx.destination);
+            osc.start(); osc.stop(audioCtx.currentTime + 0.1);
+        }
+        overlay.style.display = 'block';
+        setTimeout(() => overlay.style.display = 'none', 150);
+    }
+
+    function updateUI() {
+        document.getElementById('countFound').innerText = foundCodes.size;
+        document.getElementById('countLeft').innerText = Math.max(0, targetCodes.size - foundCodes.size);
+        const list = document.getElementById('foundItemsList');
+        list.innerHTML = foundLog.map(i => `<li><strong>${i.id}</strong><span>${i.time}</span></li>`).join('');
+    }
+
+    function saveState() {
+        localStorage.setItem('codesInput', document.getElementById('codesInput').value);
+        localStorage.setItem('foundCodes', JSON.stringify([...foundCodes]));
+        localStorage.setItem('foundLog', JSON.stringify(foundLog));
+    }
+
+    function clearMemory() {
+        if (confirm("Очистить всё?")) { localStorage.clear(); location.reload(); }
+    }
+
+    function copyToClipboard() {
+        const txt = `ОТЧЕТ (${foundCodes.size}):\n` + foundLog.map(i => `[${i.time}] ${i.id}`).join('\n');
+        navigator.clipboard.writeText(txt).then(() => alert("Скопировано!"));
+    }
+
+    function pauseApp() {
+        if (wakeLock) wakeLock.release();
+        if (html5QrCode) {
+            html5QrCode.stop().finally(() => {
+                isTorchOn = false;
+                document.getElementById('torchBtn').style.display = 'none';
+                document.getElementById('screenScanner').style.display = 'none';
+                document.getElementById('screenSetup').style.display = 'block';
+            });
+        }
+    }
+</script>
+</body>
+</html>
