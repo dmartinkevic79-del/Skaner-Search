@@ -6,8 +6,11 @@
     <meta name="theme-color" content="#111827">
     <title>Sklad Scanner Pro</title>
     
+    <link rel="apple-touch-icon" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAGAAAABgCAYAAADimHc4AAAACXBIWXMAAAsTAAALEwEAmpwYAAABy0lEQVR4nO2dS04DMRBF790A7IAFInEAsuYIsAD2XIn7X6YpYscu6En9S9Wp9C7pS7KcyNo9S7YvIsI006S5pE6aC+qXG3744YcfPvPAt6S+S5pX6pP62vD/F/Xf0nZOnZ06u3Z29ux606C8p36l/pL6k3qXvH6O/En9R/1f9T/1X7fPz7VfU/+tD+vD+vA69f5uH597v679u/Yf2n9sv1+NfV7Vv6f+vP68/nyvP79rX6H9hPYX2m/9aN8T6f1L6ndS3yW9S3ov6XvYfS2p30h9S/0Sdl97Uv+V+pX6Ley+DqT+M+y+6mS/7+X7T7v+GOn9Tfq3XN8N7f+k76v1fdH+X/p+W98f7f9P69WnZ+s9V5+erfdcfXq23nP16dl6z9WnZ+s9V5+erfdcfXq23nP16dl6z9WnZ+s9V5+erfdcfXq23nP16dl6z9WnZ+s9V5+erfdcfXq23nP16dl6z9WnZ+s9V5+erfdcfXq23nP16dl6z9WnZ+s9V5+erfdcfXq23nP16dl6z9WnZ+s9V5+erfdcfXq23nP16dl6z9WnZ+s9V5+erfdcfXq23nP16dl6z9WnZ+s9V5+erfdcfXq23nP16dl6z9WnZ+s9/839A6uSreR30YmIAAAAAElFTkSuQmCC">
+    
     <link rel="manifest" id="manifest-placeholder">
     <script src="https://unpkg.com/html5-qrcode"></script>
+    
     <style>
         :root {
             --bg: #000000;
@@ -16,6 +19,8 @@
             --danger: #ef4444;
             --text: #f3f4f6;
             --border: #374151;
+            --accent: #3b82f6;
+            --torch: #f59e0b;
         }
 
         body {
@@ -24,6 +29,7 @@
             background-color: var(--bg); color: var(--text);
             min-height: 100vh;
             display: flex; flex-direction: column;
+            overflow-x: hidden;
         }
 
         #flashOverlay {
@@ -38,63 +44,72 @@
         }
 
         .card {
-            background: var(--card-bg); border-radius: 16px; padding: 15px;
+            background: var(--card-bg); border-radius: 20px; padding: 20px;
             border: 1px solid var(--border); margin-bottom: 15px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
         }
+
+        h2 { margin: 0 0 15px 0; font-size: 20px; font-weight: 700; color: var(--text); }
 
         textarea {
-            width: 100%; height: 120px; background: #000; color: #22c55e;
-            border: 1px solid var(--border); border-radius: 10px; padding: 12px;
-            font-family: monospace; font-size: 16px; box-sizing: border-box;
-            resize: none; outline: none;
+            width: 100%; height: 140px; background: #080c14; color: #22c55e;
+            border: 1px solid var(--border); border-radius: 12px; padding: 12px;
+            font-family: 'SF Mono', monospace; font-size: 16px; box-sizing: border-box;
+            resize: none; outline: none; transition: border 0.2s;
         }
+        textarea:focus { border-color: var(--accent); }
 
         button {
-            width: 100%; padding: 16px; border-radius: 12px; border: none;
-            font-size: 14px; font-weight: bold; color: white; cursor: pointer;
-            text-transform: uppercase; transition: 0.1s;
+            width: 100%; padding: 16px; border-radius: 14px; border: none;
+            font-size: 15px; font-weight: bold; color: white; cursor: pointer;
+            text-transform: uppercase; transition: transform 0.1s, opacity 0.2s;
+            margin-top: 10px;
         }
-        button:active { opacity: 0.7; }
+        button:active { transform: scale(0.98); opacity: 0.8; }
 
-        .btn-start { background: var(--success); margin-top: 10px; }
-        .btn-clear { background: transparent; border: 2px solid var(--danger); color: var(--danger); margin-top: 10px; }
-        .btn-copy { background: #3b82f6; flex: 2; }
-        .btn-stop { background: transparent; border: 1px solid #9ca3af; color: #9ca3af; flex: 1; }
+        .btn-start { background: var(--success); }
+        .btn-clear { background: transparent; border: 2px solid var(--danger); color: var(--danger); }
+        .btn-copy { background: var(--accent); flex: 2; margin-top: 0; }
+        .btn-stop { background: transparent; border: 1px solid #9ca3af; color: #9ca3af; flex: 1; margin-top: 0; }
+        
         .btn-torch { 
-            background: #f59e0b; color: #000; margin-bottom: 10px;
-            display: none; /* Покажется только при работе камеры */
+            background: var(--torch); color: #000; margin-bottom: 15px; margin-top: 0;
+            display: none; align-items: center; justify-content: center; gap: 8px;
         }
 
-        #reader { border-radius: 12px; overflow: hidden; background: #000; border: 1px solid var(--border); }
+        #reader { border-radius: 14px; overflow: hidden; background: #000; border: 1px solid var(--border); }
 
         .stats {
             display: flex; justify-content: space-between; background: #1f2937;
-            padding: 15px; border-radius: 12px; margin-bottom: 15px;
+            padding: 18px; border-radius: 16px; margin-bottom: 15px;
+            border: 1px solid var(--border);
         }
-        .val { font-size: 24px; font-weight: 900; display: block; }
-        .label { font-size: 11px; opacity: 0.7; font-weight: bold; }
+        .val { font-size: 28px; font-weight: 900; display: block; line-height: 1; margin-top: 5px; }
+        .label { font-size: 12px; opacity: 0.6; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; }
 
         .found-list {
-            list-style: none; padding: 0; margin: 0; max-height: 150px;
-            overflow-y: auto; border: 1px solid var(--border); border-radius: 10px;
+            list-style: none; padding: 0; margin: 0; max-height: 180px;
+            overflow-y: auto; border: 1px solid var(--border); border-radius: 12px;
+            background: #080c14;
         }
         .found-list li {
-            padding: 8px 12px; border-bottom: 1px solid var(--border);
+            padding: 12px 15px; border-bottom: 1px solid var(--border);
             display: flex; justify-content: space-between; font-size: 14px; align-items: center;
         }
-        .found-list li strong { color: var(--success); font-family: monospace; }
+        .found-list li:last-child { border-bottom: none; }
+        .found-list li strong { color: var(--success); font-family: monospace; font-size: 16px; }
+        .time-tag { font-size: 11px; opacity: 0.5; }
 
         .error-msg {
-            background: rgba(239, 68, 68, 0.1); border: 1px solid var(--danger);
-            color: #fca5a5; padding: 12px; border-radius: 10px; font-size: 13px;
+            background: rgba(239, 68, 68, 0.15); border: 1px solid var(--danger);
+            color: #fca5a5; padding: 15px; border-radius: 12px; font-size: 14px;
             margin-bottom: 15px; display: none; text-align: center;
         }
 
         .attribution {
             text-align: center; font-size: 10px; color: #4b5563;
-            padding: 15px 0; text-transform: uppercase;
-            letter-spacing: 1.5px; opacity: 0.8;
-            width: 100%; background: var(--bg);
+            padding: 20px 0; text-transform: uppercase;
+            letter-spacing: 2px; opacity: 0.7; font-weight: bold;
         }
         
         #screenScanner { display: none; flex-direction: column; }
@@ -107,9 +122,9 @@
 <div class="container">
     <div id="screenSetup">
         <div class="card">
-            <h2 style="margin-top:0; font-size: 20px;">Передачи</h2>
-            <div id="cameraError" class="error-msg">Ошибка камеры. Проверьте разрешения.</div>
-            <textarea id="codesInput" placeholder="Вставьте список ID сюда..."></textarea>
+            <h2>Накладная</h2>
+            <div id="cameraError" class="error-msg">⚠️ Доступ к камере заблокирован. Пожалуйста, разрешите камеру в настройках браузера.</div>
+            <textarea id="codesInput" placeholder="Вставьте список ID (каждый с новой строки)..."></textarea>
             <button class="btn-start" id="startBtn" onclick="startApp()">ЗАПУСТИТЬ ПОИСК</button>
             <button class="btn-clear" onclick="clearMemory()">🗑 СБРОСИТЬ ВСЁ</button>
         </div>
@@ -127,7 +142,7 @@
             <div style="text-align:right"><span class="label" style="color:var(--danger)">ОСТАЛОСЬ</span><span class="val" id="countLeft" style="color:var(--danger)">0</span></div>
         </div>
 
-        <div class="card" style="margin-bottom: 5px;">
+        <div class="card">
             <ul class="found-list" id="foundItemsList"></ul>
             <div style="display: flex; gap: 10px; margin-top: 15px;">
                 <button class="btn-copy" id="copyBtn" onclick="copyToClipboard()">КОПИРОВАТЬ</button>
@@ -142,9 +157,11 @@
 </div>
 
 <script>
-    // --- PWA & OFFLINE ---
+    // --- PWA, OFFLINE & ICON ---
+    const iconBase64 = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAGAAAABgCAYAAADimHc4AAAACXBIWXMAAAsTAAALEwEAmpwYAAABy0lEQVR4nO2dS04DMRBF790A7IAFInEAsuYIsAD2XIn7X6YpYscu6En9S9Wp9C7pS7KcyNo9S7YvIsI006S5pE6aC+qXG3744YcfPvPAt6S+S5pX6pP62vD/F/Xf0nZOnZ06u3Z29ux606C8p36l/pL6k3qXvH6O/En9R/1f9T/1X7fPz7VfU/+tD+vD+vA69f5uH597v679u/Yf2n9sv1+NfV7Vv6f+vP68/nyvP79rX6H9hPYX2m/9aN8T6f1L6ndS3yW9S3ov6XvYfS2p30h9S/0Sdl97Uv+V+pX6Ley+DqT+M+y+6mS/7+X7T7v+GOn9Tfq3XN8N7f+k76v1fdH+X/p+W98f7f9P69WnZ+s9V5+erfdcfXq23nP16dl6z9WnZ+s9V5+erfdcfXq23nP16dl6z9WnZ+s9V5+erfdcfXq23nP16dl6z9WnZ+s9V5+erfdcfXq23nP16dl6z9WnZ+s9V5+erfdcfXq23nP16dl6z9WnZ+s9V5+erfdcfXq23nP16dl6z9WnZ+s9V5+erfdcfXq23nP16dl6z9WnZ+s9V5+erfdcfXq23nP16dl6z9WnZ+s9V5+erfdcfXq23nP16dl6z9WnZ+s9/839A6uSreR30YmIAAAAAElFTkSuQmCC";
+
     const swCode = `
-        const CACHE_NAME = 'sklad-scanner-v3';
+        const CACHE_NAME = 'sklad-pro-v5';
         const urlsToCache = [ location.href, 'https://unpkg.com/html5-qrcode' ];
         self.addEventListener('install', e => e.waitUntil(caches.open(CACHE_NAME).then(c => c.addAll(urlsToCache))));
         self.addEventListener('fetch', e => e.respondWith(caches.match(e.request).then(r => r || fetch(e.request))));
@@ -152,10 +169,16 @@
     const swBlob = new Blob([swCode], { type: 'application/javascript' });
     if ('serviceWorker' in navigator) navigator.serviceWorker.register(URL.createObjectURL(swBlob));
 
-    const manifest = { name: "Sklad Scanner Pro", short_name: "Scanner", display: "standalone", start_url: location.href };
+    const manifest = { 
+        name: "Sklad Scanner Pro", 
+        short_name: "Scanner", 
+        display: "standalone", 
+        start_url: location.href,
+        icons: [{ src: iconBase64, sizes: "96x96", type: "image/png" }, { src: iconBase64, sizes: "512x512", type: "image/png" }]
+    };
     document.getElementById('manifest-placeholder').href = URL.createObjectURL(new Blob([JSON.stringify(manifest)], { type: 'application/json' }));
 
-    // --- LOGIC ---
+    // --- ЛОГИКА ПРИЛОЖЕНИЯ ---
     let targetCodes = new Set();
     let foundCodes = new Set();
     let foundLog = [];
@@ -180,104 +203,6 @@
             isTorchOn = !isTorchOn;
             await html5QrCode.applyVideoConstraints({ advanced: [{ torch: isTorchOn }] });
             document.getElementById('torchBtn').innerText = isTorchOn ? "🔦 ФОНАРИК: ВКЛ" : "🔦 ФОНАРИК: ВЫКЛ";
+            document.getElementById('torchBtn').style.backgroundColor = isTorchOn ? "#ffffff" : "var(--torch)";
         } catch (err) {
-            console.error("Фонарик не поддерживается", err);
-        }
-    }
 
-    async function startApp() {
-        const input = document.getElementById('codesInput').value;
-        const lines = input.split('\n').map(s => s.trim()).filter(s => s !== "");
-        if (!lines.length) return alert("Введите список ID!");
-
-        targetCodes = new Set(lines);
-        document.getElementById('screenSetup').style.display = 'none';
-        document.getElementById('screenScanner').style.display = 'flex';
-        updateUI();
-
-        if ('wakeLock' in navigator) wakeLock = await navigator.wakeLock.request('screen');
-
-        if (!html5QrCode) html5QrCode = new Html5Qrcode("reader");
-
-        try {
-            await html5QrCode.start(
-                { facingMode: "environment" }, 
-                { fps: 15, qrbox: 250 },
-                (text) => {
-                    const id = text.split(':')[2] || text; 
-                    if (targetCodes.has(id)) {
-                        triggerFeedback('success');
-                        if (!foundCodes.has(id)) {
-                            foundCodes.add(id);
-                            foundLog.unshift({ id, time: new Date().toLocaleTimeString('ru-RU') });
-                            saveState();
-                            updateUI();
-                        }
-                    } else {
-                        triggerFeedback('fail');
-                    }
-                }
-            );
-            
-            // Проверяем поддержку фонарика после старта
-            const capabilities = html5QrCode.getRunningTrackCapabilities();
-            if (capabilities.torch) {
-                document.getElementById('torchBtn').style.display = 'block';
-            }
-        } catch (err) {
-            document.getElementById('cameraError').style.display = 'block';
-            pauseApp();
-        }
-    }
-
-    function triggerFeedback(type) {
-        const overlay = document.getElementById('flashOverlay');
-        overlay.style.backgroundColor = type === 'success' ? 'rgba(16, 185, 129, 0.6)' : 'rgba(239, 68, 68, 0.6)';
-        if (type === 'success') {
-            const osc = audioCtx.createOscillator();
-            const g = audioCtx.createGain();
-            osc.frequency.setValueAtTime(1000, audioCtx.currentTime);
-            g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.1);
-            osc.connect(g); g.connect(audioCtx.destination);
-            osc.start(); osc.stop(audioCtx.currentTime + 0.1);
-        }
-        overlay.style.display = 'block';
-        setTimeout(() => overlay.style.display = 'none', 150);
-    }
-
-    function updateUI() {
-        document.getElementById('countFound').innerText = foundCodes.size;
-        document.getElementById('countLeft').innerText = Math.max(0, targetCodes.size - foundCodes.size);
-        const list = document.getElementById('foundItemsList');
-        list.innerHTML = foundLog.map(i => `<li><strong>${i.id}</strong><span>${i.time}</span></li>`).join('');
-    }
-
-    function saveState() {
-        localStorage.setItem('codesInput', document.getElementById('codesInput').value);
-        localStorage.setItem('foundCodes', JSON.stringify([...foundCodes]));
-        localStorage.setItem('foundLog', JSON.stringify(foundLog));
-    }
-
-    function clearMemory() {
-        if (confirm("Очистить всё?")) { localStorage.clear(); location.reload(); }
-    }
-
-    function copyToClipboard() {
-        const txt = `ОТЧЕТ (${foundCodes.size}):\n` + foundLog.map(i => `[${i.time}] ${i.id}`).join('\n');
-        navigator.clipboard.writeText(txt).then(() => alert("Скопировано!"));
-    }
-
-    function pauseApp() {
-        if (wakeLock) wakeLock.release();
-        if (html5QrCode) {
-            html5QrCode.stop().finally(() => {
-                isTorchOn = false;
-                document.getElementById('torchBtn').style.display = 'none';
-                document.getElementById('screenScanner').style.display = 'none';
-                document.getElementById('screenSetup').style.display = 'block';
-            });
-        }
-    }
-</script>
-</body>
-</html>
