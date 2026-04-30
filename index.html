@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="theme-color" content="#0a0f16">
-    <title>Sklad Scanner Elite v9.0</title>
+    <title>Sklad Scanner Elite v9.1</title>
     
     <script src="https://unpkg.com/html5-qrcode"></script>
     
@@ -98,9 +98,14 @@
             50% { transform: translateY(var(--qr-size)); opacity: 1; }
         }
 
+        .active-cam-label {
+            text-align: center; font-size: 9px; text-transform: uppercase;
+            color: var(--accent); margin-top: 5px; opacity: 0.7; letter-spacing: 1px;
+        }
+
         .stats {
             display: flex; justify-content: space-between; background: var(--glass-bg);
-            padding: 15px 20px; border-radius: 20px; margin-bottom: 12px;
+            padding: 15px 20px; border-radius: 20px; margin-top: 10px; margin-bottom: 12px;
             border: 1px solid var(--glass-border);
         }
         .val { font-size: 28px; font-weight: 800; color: #fff; }
@@ -132,17 +137,17 @@
 <div class="container">
     <div id="screenSetup">
         <div class="card">
-            <h2>Elite Scanner v9.0</h2>
+            <h2>Elite Scanner v9.1</h2>
             
             <label>Список штрихкодов</label>
             <textarea id="codesInput" placeholder="Введите ID для поиска..."></textarea>
             
-            <label>Выбор камеры</label>
+            <label>Выбор объектива</label>
             <select id="cameraSelect">
-                <option value="">Загрузка камер...</option>
+                <option value="">Загрузка списка камер...</option>
             </select>
 
-            <button class="btn-start" onclick="startApp()">Запустить сканер</button>
+            <button class="btn-start" onclick="startApp()">Включить сканер</button>
             <button class="btn-clear" onclick="clearMemory()">Очистить память</button>
         </div>
         <div class="attribution">
@@ -156,6 +161,7 @@
             <div id="reader"></div>
             <div id="laser" class="laser"></div>
         </div>
+        <div id="activeCamName" class="active-cam-label">Определение камеры...</div>
 
         <div class="stats">
             <div><span class="label-stat">Найдено</span><span class="val" id="countFound">0</span></div>
@@ -166,7 +172,7 @@
             <ul class="found-list" id="foundItemsList"></ul>
             <div style="display: flex; gap: 12px; margin-top: 15px;">
                 <button class="btn-copy" onclick="copyToClipboard()">Отчет</button>
-                <button class="btn-stop" onclick="stopApp()">Назад</button>
+                <button class="btn-stop" onclick="stopApp()">К выбору камер</button>
             </div>
         </div>
     </div>
@@ -185,13 +191,11 @@
     const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 
     window.onload = async () => {
-        // Загрузка сохраненных данных
         const savedInput = localStorage.getItem('codesInput');
         if (savedInput) document.getElementById('codesInput').value = savedInput;
         foundCodes = new Set(JSON.parse(localStorage.getItem('foundCodes') || '[]'));
         foundLog = JSON.parse(localStorage.getItem('foundLog') || '[]');
         
-        // Получение списка камер
         await updateCameraList();
     };
 
@@ -214,7 +218,7 @@
                 select.innerHTML = '<option value="">Камеры не найдены</option>';
             }
         } catch (e) {
-            select.innerHTML = '<option value="">Ошибка доступа к камере</option>';
+            select.innerHTML = '<option value="">Ошибка разрешений камеры</option>';
         }
     }
 
@@ -223,10 +227,12 @@
 
         const input = document.getElementById('codesInput').value;
         targetCodesArray = input.split(/\r?\n/).map(s => s.trim().toUpperCase()).filter(s => s !== "");
-        
         if (!targetCodesArray.length) return alert("Введите список ID!");
 
-        const cameraId = document.getElementById('cameraSelect').value;
+        const select = document.getElementById('cameraSelect');
+        const cameraId = select.value;
+        const cameraLabel = select.options[select.selectedIndex].text;
+        
         if (!cameraId) return alert("Выберите камеру!");
 
         localStorage.setItem('lastCameraId', cameraId);
@@ -235,13 +241,19 @@
         document.getElementById('screenSetup').style.display = 'none';
         document.getElementById('screenScanner').style.display = 'flex';
         document.getElementById('laser').style.display = 'block';
+        document.getElementById('activeCamName').innerText = "Активен: " + cameraLabel;
         
         updateUI();
         initScanner(cameraId);
     }
 
-    function initScanner(cameraId) {
+    async function initScanner(cameraId) {
         if (!html5QrCode) html5QrCode = new Html5Qrcode("reader");
+        
+        // ВАЖНО: Если сканер уже работает, останавливаем его перед переключением
+        if (html5QrCode.isScanning) {
+            await html5QrCode.stop();
+        }
 
         const config = {
             fps: 15,
@@ -252,81 +264,77 @@
                 Html5QrcodeSupportedFormats.CODE_128, Html5QrcodeSupportedFormats.QR_CODE, 
                 Html5QrcodeSupportedFormats.DATA_MATRIX 
             ],
+            // Убираем facingMode, используем только cameraId для точного выбора
             videoConstraints: {
                 width: { ideal: 1920 },
-                height: { ideal: 1080 },
-                advanced: [{ focusMode: "continuous" }]
+                height: { ideal: 1080 }
             }
         };
 
-        // Запуск с конкретным cameraId вместо facingMode
-        html5QrCode.start(cameraId, config, (decodedText) => {
-            const raw = decodedText.trim().toUpperCase();
-            if (raw.length < 3) return;
+        html5QrCode.start(
+            cameraId, 
+            config, 
+            (decodedText) => {
+                const raw = decodedText.trim().toUpperCase();
+                const now = Date.now();
+                if (raw === lastScanResult && (now - lastScanTime < SCAN_DELAY)) return;
 
-            const now = Date.now();
-            if (raw === lastScanResult && (now - lastScanTime < SCAN_DELAY)) return;
-
-            let foundMatch = null;
-            const segments = raw.split(/[:\s]+/); 
-            
-            if (targetCodesArray.includes(raw)) {
-                foundMatch = raw;
-            } else {
-                for (let seg of segments) {
-                    if (targetCodesArray.includes(seg)) {
-                        foundMatch = seg;
-                        break;
+                let foundMatch = null;
+                const segments = raw.split(/[:\s]+/); 
+                
+                if (targetCodesArray.includes(raw)) {
+                    foundMatch = raw;
+                } else {
+                    for (let seg of segments) {
+                        if (targetCodesArray.includes(seg)) { foundMatch = seg; break; }
                     }
                 }
-            }
 
-            if (foundMatch) {
-                if (!foundCodes.has(foundMatch)) {
-                    foundCodes.add(foundMatch);
-                    foundLog.unshift({ id: foundMatch, time: new Date().toLocaleTimeString('ru-RU') });
-                    saveState();
-                    updateUI();
+                if (foundMatch) {
+                    if (!foundCodes.has(foundMatch)) {
+                        foundCodes.add(foundMatch);
+                        foundLog.unshift({ id: foundMatch, time: new Date().toLocaleTimeString('ru-RU') });
+                        saveState();
+                        updateUI();
+                    }
+                    triggerFeedback('success');
+                } else {
+                    triggerFeedback('fail');
                 }
-                triggerFeedback('success');
-            } else {
-                triggerFeedback('fail');
+                lastScanResult = raw;
+                lastScanTime = now;
             }
-
-            lastScanResult = raw;
-            lastScanTime = now;
-        }).then(() => {
+        ).then(() => {
             const cap = html5QrCode.getRunningTrackCapabilities();
-            if (cap.torch) document.getElementById('torchBtn').style.display = 'block';
+            document.getElementById('torchBtn').style.display = cap.torch ? 'block' : 'none';
         }).catch(err => {
-            alert("Ошибка запуска: " + err);
+            console.error("Ошибка запуска камеры:", err);
+            alert("Эта камера не отвечает. Попробуйте выбрать другую из списка.");
             stopApp();
         });
     }
 
-    function playTone(frequency, type, duration, vol) {
+    function playTone(freq, type, dur, vol) {
         if (audioCtx.state === 'suspended') return;
         const osc = audioCtx.createOscillator();
         const gain = audioCtx.createGain();
         osc.type = type;
-        osc.frequency.setValueAtTime(frequency, audioCtx.currentTime);
+        osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
         gain.gain.setValueAtTime(vol, audioCtx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
-        osc.connect(gain);
-        gain.connect(audioCtx.destination);
-        osc.start();
-        osc.stop(audioCtx.currentTime + duration);
+        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + dur);
+        osc.connect(gain); gain.connect(audioCtx.destination);
+        osc.start(); osc.stop(audioCtx.currentTime + dur);
     }
 
     function triggerFeedback(type) {
         const overlay = document.getElementById('flashOverlay');
         if (type === 'success') {
             overlay.style.backgroundColor = 'rgba(0, 255, 157, 0.3)';
-            playTone(880, 'sine', 0.1, 0.3); 
-            setTimeout(() => playTone(1108, 'sine', 0.2, 0.3), 100);
+            playTone(880, 'sine', 0.1, 0.2); 
+            setTimeout(() => playTone(1108, 'sine', 0.2, 0.2), 100);
         } else {
             overlay.style.backgroundColor = 'rgba(255, 77, 77, 0.3)';
-            playTone(200, 'triangle', 0.25, 0.4);
+            playTone(200, 'triangle', 0.25, 0.3);
         }
         overlay.style.display = 'block';
         setTimeout(() => overlay.style.display = 'none', 150);
@@ -345,17 +353,11 @@
 
     async function toggleTorch() {
         isTorchOn = !isTorchOn;
-        try {
-            await html5QrCode.applyVideoConstraints({ advanced: [{ torch: isTorchOn }] });
-        } catch (e) {}
+        try { await html5QrCode.applyVideoConstraints({ advanced: [{ torch: isTorchOn }] }); } catch (e) {}
     }
 
     function clearMemory() {
-        if (confirm("Очистить историю сканирования?")) {
-            localStorage.removeItem('foundCodes');
-            localStorage.removeItem('foundLog');
-            location.reload();
-        }
+        if (confirm("Очистить историю?")) { localStorage.clear(); location.reload(); }
     }
 
     function copyToClipboard() {
@@ -364,12 +366,13 @@
     }
 
     async function stopApp() {
-        if (html5QrCode) {
+        if (html5QrCode && html5QrCode.isScanning) {
             await html5QrCode.stop();
-            document.getElementById('screenScanner').style.display = 'none';
-            document.getElementById('screenSetup').style.display = 'block';
-            document.getElementById('laser').style.display = 'none';
         }
+        document.getElementById('screenScanner').style.display = 'none';
+        document.getElementById('screenSetup').style.display = 'block';
+        document.getElementById('laser').style.display = 'none';
+        await updateCameraList(); // Обновляем список при возврате
     }
 </script>
 </body>
