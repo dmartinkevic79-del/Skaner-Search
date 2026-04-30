@@ -3,148 +3,302 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>SOFRINOKBT Scanner</title>
+    <meta name="theme-color" content="#0a0f16">
+    <title>Sklad Scanner Elite v8.8</title>
+    
     <script src="https://unpkg.com/html5-qrcode"></script>
+    
     <style>
-        :root { --primary: #00ffcc; --error: #ff6b6b; --bg: #0f0f1a; }
-        body { margin: 0; background: var(--bg); color: white; font-family: sans-serif; display: flex; flex-direction: column; align-items: center; min-height: 100vh; }
+        :root {
+            --bg: #05080a;
+            --glass-bg: rgba(255, 255, 255, 0.03);
+            --glass-border: rgba(255, 255, 255, 0.07);
+            --success: #00ff9d;
+            --danger: #ff4d4d;
+            --accent: #00d4ff;
+            --text: #e0e6ed;
+            --qr-size: 260px; 
+        }
+
+        body {
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            margin: 0; padding: 0;
+            background: #05080a;
+            color: var(--text);
+            min-height: 100vh;
+            display: flex; flex-direction: column;
+        }
+
+        #flashOverlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            z-index: 9999; display: none; pointer-events: none;
+        }
+
+        .container { 
+            max-width: 500px; margin: 0 auto; padding: 12px; 
+            width: 100%; box-sizing: border-box; flex: 1;
+            display: flex; flex-direction: column;
+        }
+
+        .card {
+            background: var(--glass-bg);
+            backdrop-filter: blur(20px);
+            border-radius: 24px; padding: 18px;
+            border: 1px solid var(--glass-border);
+            margin-bottom: 15px;
+        }
+
+        h2 { margin: 0 0 15px 0; font-size: 14px; letter-spacing: 2px; text-transform: uppercase; opacity: 0.6; text-align: center;}
+
+        textarea {
+            width: 100%; height: 110px; background: rgba(0, 0, 0, 0.6); color: var(--success);
+            border: 1px solid var(--glass-border); border-radius: 16px; padding: 15px;
+            font-family: 'Consolas', monospace; font-size: 16px; box-sizing: border-box;
+            outline: none; resize: none;
+        }
+
+        button {
+            width: 100%; padding: 16px; border-radius: 14px; border: none;
+            font-size: 14px; font-weight: 700; color: white; cursor: pointer;
+            text-transform: uppercase; transition: 0.2s; margin-top: 10px;
+        }
+
+        .btn-start { background: linear-gradient(135deg, #006357, #4e6b1e); }
+        .btn-clear { background: rgba(255, 77, 77, 0.05); border: 1px solid rgba(255, 77, 77, 0.3); color: #ff8080; }
+        .btn-copy { background: linear-gradient(135deg, #007799, #002b55); flex: 2; margin: 0; }
+        .btn-stop { background: rgba(255,255,255,0.05); border: 1px solid var(--glass-border); flex: 1; margin: 0; }
+        .btn-torch { background: rgba(245, 158, 11, 0.1); border: 1px solid #f59e0b; color: #f59e0b; margin-bottom: 10px; display: none;}
+
+        #reader-container { position: relative; border-radius: 20px; overflow: hidden; background: #000; }
+        #reader { width: 100%; }
         
-        #reader-wrapper { position: relative; width: 320px; height: 320px; margin-top: 20px; border-radius: 20px; overflow: hidden; border: 2px solid rgba(255,255,255,0.1); }
-        #reader { width: 100% !important; }
-        #start-btn { position: absolute; z-index: 10; top: 50%; left: 50%; transform: translate(-50%, -50%); padding: 15px 25px; background: var(--primary); border: none; border-radius: 30px; font-weight: bold; cursor: pointer; }
+        .laser {
+            position: absolute; left: calc(50% - (var(--qr-size) / 2));
+            width: var(--qr-size); height: 2px; background: var(--accent);
+            box-shadow: 0 0 15px var(--accent); z-index: 5; pointer-events: none;
+            top: calc(50% - (var(--qr-size) / 2));
+            animation: scan-anim 3s ease-in-out infinite; display: none;
+        }
+
+        @keyframes scan-anim {
+            0%, 100% { transform: translateY(0); opacity: 0.2; }
+            50% { transform: translateY(var(--qr-size)); opacity: 1; }
+        }
+
+        .stats {
+            display: flex; justify-content: space-between; background: var(--glass-bg);
+            padding: 15px 20px; border-radius: 20px; margin-bottom: 12px;
+            border: 1px solid var(--glass-border);
+        }
+        .val { font-size: 28px; font-weight: 800; color: #fff; }
+        .label { font-size: 10px; opacity: 0.4; font-weight: 900; text-transform: uppercase; }
+
+        .found-list {
+            list-style: none; padding: 0; margin: 0; max-height: 150px;
+            overflow-y: auto; border-radius: 12px; background: rgba(0,0,0,0.2);
+        }
+        .found-list li {
+            padding: 12px 15px; border-bottom: 1px solid var(--glass-border);
+            display: flex; justify-content: space-between; font-size: 14px;
+        }
+        .found-list li strong { color: var(--success); font-family: monospace; }
         
-        #custom-overlay { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 280px; height: 280px; border: 2px solid var(--primary); z-index: 5; pointer-events: none; box-shadow: 0 0 0 500px rgba(0,0,0,0.5); }
-        
-        .controls { width: 90%; max-width: 360px; margin-top: 20px; background: rgba(255,255,255,0.05); padding: 15px; border-radius: 15px; backdrop-filter: blur(10px); }
-        .result-display { padding: 15px; background: #000; border-radius: 10px; text-align: center; font-size: 1.2rem; font-weight: bold; color: var(--primary); margin-bottom: 10px; }
-        .duplicate { color: var(--error); animation: shake 0.3s; }
-        @keyframes shake { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-5px)} 75%{transform:translateX(5px)} }
-        
-        select, .send-btn { width: 100%; padding: 12px; margin-top: 10px; border-radius: 10px; border: none; font-size: 1rem; font-weight: bold; }
-        .send-btn { background: var(--primary); cursor: pointer; }
-        
-        .history-item { background: rgba(255,255,255,0.1); margin-top: 10px; padding: 10px; border-radius: 10px; display: flex; justify-content: space-between; align-items: center; }
-        .del-btn { color: var(--error); padding: 5px 10px; cursor: pointer; }
-        .copyright { margin: 20px; font-size: 0.7rem; opacity: 0.6; font-weight: bold; }
+        #screenScanner { display: none; flex-direction: column; }
     </style>
 </head>
 <body>
 
-<div id="reader-wrapper">
-    <button id="start-btn" onclick="startScanner()">ЗАПУСТИТЬ СКАНЕР</button>
-    <div id="reader"></div>
-    <div id="custom-overlay"></div>
+<div id="flashOverlay"></div>
+
+<div class="container">
+    <div id="screenSetup">
+        <div class="card">
+            <h2>Elite Scanner v8.8</h2>
+            <textarea id="codesInput" placeholder="Список ID (по одному в строке)..."></textarea>
+            <button class="btn-start" onclick="startApp()">Запустить сканер</button>
+            <button class="btn-clear" onclick="clearMemory()">Очистить всё</button>
+        </div>
+    </div>
+
+    <div id="screenScanner">
+        <button id="torchBtn" class="btn-torch" onclick="toggleTorch()">🔦 Фонарик</button>
+        <div id="reader-container">
+            <div id="reader"></div>
+            <div id="laser" class="laser"></div>
+        </div>
+
+        <div class="stats">
+            <div><span class="label">Найдено</span><span class="val" id="countFound">0</span></div>
+            <div style="text-align:right"><span class="label">Осталось</span><span class="val" id="countLeft" style="color: var(--accent)">0</span></div>
+        </div>
+
+        <div class="card">
+            <ul class="found-list" id="foundItemsList"></ul>
+            <div style="display: flex; gap: 12px; margin-top: 15px;">
+                <button class="btn-copy" onclick="copyToClipboard()">Отчет</button>
+                <button class="btn-stop" onclick="pauseApp()">Назад</button>
+            </div>
+        </div>
+    </div>
 </div>
-
-<div class="controls">
-    <div id="result" class="result-display">ГОТОВ К РАБОТЕ</div>
-    <select id="route-select" onchange="updateUI()">
-        <option value="1">Маршрут №1</option><option value="2">Маршрут №2</option><option value="3">Маршрут №3</option>
-        <option value="4">Маршрут №4</option><option value="5">Маршрут №5</option><option value="6">Маршрут №6</option>
-    </select>
-    <button id="send-btn" class="send-btn" onclick="sendToGoogle()">ОТПРАВИТЬ В ТАБЛИЦУ</button>
-</div>
-
-<div id="history-list" style="width: 90%; max-width: 360px;"></div>
-
-<div class="copyright">DEVELOPED BY D. MARTINKEVICH FOR SOFRINOKBT</div>
 
 <script>
-    // СЮДА ВСТАВЬТЕ ССЫЛКУ ИЗ GOOGLE (DEPLOY)
-    const GOOGLE_SCRIPT_URL = 'ВАША_ССЫЛКА_ИЗ_РАЗВЕРТЫВАНИЯ';
+    let targetCodesArray = [];
+    let foundCodes = new Set();
+    let foundLog = [];
+    let html5QrCode;
+    let isTorchOn = false;
+    let lastScanResult = null;
+    let lastScanTime = 0;
+    const SCAN_DELAY = 1200; 
 
-    let historyData = JSON.parse(localStorage.getItem('sofrinoData')) || {1:[],2:[],3:[],4:[],5:[],6:[]};
-    let lastId = null;
-    const html5QrCode = new Html5Qrcode("reader");
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 
-    async function startScanner() {
-        document.getElementById('start-btn').style.display = 'none';
-        const config = { fps: 20, qrbox: { width: 280, height: 280 } };
-        html5QrCode.start({ facingMode: "environment" }, config, onScanSuccess);
-        if ('wakeLock' in navigator) await navigator.wakeLock.request('screen');
-    }
+    window.onload = () => {
+        const savedInput = localStorage.getItem('codesInput');
+        if (savedInput) document.getElementById('codesInput').value = savedInput;
+        foundCodes = new Set(JSON.parse(localStorage.getItem('foundCodes') || '[]'));
+        foundLog = JSON.parse(localStorage.getItem('foundLog') || '[]');
+    };
 
-    function onScanSuccess(decodedText) {
-        const parts = decodedText.split(':');
-        const id = (parts.length >= 3 ? parts[2] : decodedText).trim();
-        const route = document.getElementById('route-select').value;
-        const resDiv = document.getElementById('result');
+    async function startApp() {
+        const input = document.getElementById('codesInput').value;
+        targetCodesArray = input.split(/\r?\n/).map(s => s.trim().toUpperCase()).filter(s => s !== "");
+        
+        if (!targetCodesArray.length) return alert("Список пуст!");
 
-        if (historyData[route].some(item => item.id === id)) {
-            if (lastId !== id) {
-                resDiv.innerText = "ДУБЛИКАТ: " + id;
-                resDiv.classList.add('duplicate');
-                playBeep(false);
-                if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
-                lastId = id;
-            }
-            return;
-        }
-
-        lastId = id;
-        resDiv.innerText = id;
-        resDiv.classList.remove('duplicate');
-        playBeep(true);
-        if (navigator.vibrate) navigator.vibrate(100);
-
-        historyData[route].unshift({ id: id, time: new Date().toLocaleTimeString().slice(0,5) });
-        save();
-    }
-
-    function save() {
-        localStorage.setItem('sofrinoData', JSON.stringify(historyData));
+        document.getElementById('screenSetup').style.display = 'none';
+        document.getElementById('screenScanner').style.display = 'flex';
+        document.getElementById('laser').style.display = 'block';
         updateUI();
+        initScanner();
     }
 
-    function updateUI() {
-        const route = document.getElementById('route-select').value;
-        const list = document.getElementById('history-list');
-        list.innerHTML = historyData[route].map((item, idx) => `
-            <div class="history-item">
-                <span>${item.id} <small>(${item.time})</small></span>
-                <span class="del-btn" onclick="deleteItem(${idx})">❌</span>
-            </div>
-        `).join('');
-    }
+    function initScanner() {
+        if (!html5QrCode) html5QrCode = new Html5Qrcode("reader");
 
-    function deleteItem(idx) {
-        const route = document.getElementById('route-select').value;
-        historyData[route].splice(idx, 1);
-        save();
-    }
+        const config = {
+            fps: 15, // Баланс скорости и точности
+            qrbox: { width: 260, height: 260 }, // Оптимальный квадрат
+            aspectRatio: 1.0,
+            formatsToSupport: [ 
+                Html5QrcodeSupportedFormats.EAN_13, 
+                Html5QrcodeSupportedFormats.EAN_8, 
+                Html5QrcodeSupportedFormats.CODE_128,
+                Html5QrcodeSupportedFormats.QR_CODE, // Добавлено для маркировок
+                Html5QrcodeSupportedFormats.DATA_MATRIX // Добавлено для Честного ЗНАКа
+            ],
+            videoConstraints: {
+                facingMode: "environment",
+                width: { ideal: 1280 },
+                height: { ideal: 720 },
+                advanced: [{ focusMode: "continuous" }] // Принудительный автофокус
+            }
+        };
 
-    function playBeep(success) {
-        const ctx = new AudioContext();
-        const osc = ctx.createOscillator();
-        const g = ctx.createGain();
-        osc.frequency.value = success ? 800 : 200;
-        g.gain.value = 0.1;
-        osc.connect(g); g.connect(ctx.destination);
-        osc.start(); osc.stop(ctx.currentTime + (success ? 0.1 : 0.3));
-    }
+        html5QrCode.start({ facingMode: "environment" }, config, (decodedText) => {
+            const raw = decodedText.trim().toUpperCase();
+            
+            // Защита от мусорных срабатываний бликов (слишком короткие коды)
+            if (raw.length < 4) return;
 
-    function sendToGoogle() {
-        const route = document.getElementById('route-select').value;
-        const codes = historyData[route].map(i => i.id).join(', ');
-        if (!codes) return alert("Список пуст");
+            const now = Date.now();
 
-        const btn = document.getElementById('send-btn');
-        btn.innerText = "ОТПРАВКА..."; btn.disabled = true;
+            if (raw === lastScanResult && (now - lastScanTime < SCAN_DELAY)) return;
 
-        fetch(GOOGLE_SCRIPT_URL, {
-            method: 'POST',
-            mode: 'no-cors',
-            body: JSON.stringify({ value: codes, route: route })
+            // СТРОГИЙ ПОИСК: разбиваем код и ищем точное совпадение
+            let foundMatch = null;
+            const segments = raw.split(':');
+            
+            // Сначала проверяем код целиком
+            if (targetCodesArray.includes(raw)) {
+                foundMatch = raw;
+            } else {
+                // Если целиком не совпал, проверяем по сегментам
+                for (let seg of segments) {
+                    if (targetCodesArray.includes(seg)) {
+                        foundMatch = seg;
+                        break;
+                    }
+                }
+            }
+
+            if (foundMatch) {
+                if (!foundCodes.has(foundMatch)) {
+                    foundCodes.add(foundMatch);
+                    foundLog.unshift({ id: foundMatch, time: new Date().toLocaleTimeString('ru-RU') });
+                    saveState();
+                    updateUI();
+                }
+                triggerFeedback('success');
+            } else {
+                triggerFeedback('fail');
+            }
+
+            lastScanResult = raw;
+            lastScanTime = now;
         }).then(() => {
-            alert("Данные за " + route + " маршрут отправлены!");
-            btn.innerText = "ОТПРАВИТЬ В ТАБЛИЦУ"; btn.disabled = false;
-        }).catch(() => {
-            alert("Ошибка сети");
-            btn.innerText = "ОТПРАВИТЬ В ТАБЛИЦУ"; btn.disabled = false;
+            const cap = html5QrCode.getRunningTrackCapabilities();
+            if (cap.torch) document.getElementById('torchBtn').style.display = 'block';
+        }).catch(err => {
+            console.warn("Camera init warning:", err);
+            // Фолбэк, если устройство не поддерживает advanced focusMode
+            delete config.videoConstraints.advanced;
+            html5QrCode.start({ facingMode: "environment" }, config, /*...*/);
         });
     }
 
-    updateUI();
+    function triggerFeedback(type) {
+        const overlay = document.getElementById('flashOverlay');
+        overlay.style.backgroundColor = type === 'success' ? 'rgba(0, 255, 157, 0.4)' : 'rgba(255, 77, 77, 0.4)';
+        
+        if (type === 'success') {
+            // Более агрессивный, "кассовый" звук (Square wave)
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            const osc = audioCtx.createOscillator();
+            const g = audioCtx.createGain();
+            osc.type = 'square'; // Резкий электронный звук
+            osc.frequency.setValueAtTime(1200, audioCtx.currentTime); 
+            osc.frequency.exponentialRampToValueAtTime(1500, audioCtx.currentTime + 0.1); // Небольшой "взлет" частоты
+            g.gain.setValueAtTime(0.3, audioCtx.currentTime); // Громче
+            g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.15);
+            osc.connect(g); g.connect(audioCtx.destination);
+            osc.start(); osc.stop(audioCtx.currentTime + 0.15);
+        }
+        
+        overlay.style.display = 'block';
+        setTimeout(() => overlay.style.display = 'none', 150);
+    }
+
+    function updateUI() {
+        document.getElementById('countFound').innerText = foundCodes.size;
+        document.getElementById('countLeft').innerText = Math.max(0, targetCodesArray.length - foundCodes.size);
+        document.getElementById('foundItemsList').innerHTML = foundLog.slice(0, 30).map(i => `<li><strong>${i.id}</strong><span>${i.time}</span></li>`).join('');
+    }
+
+    function saveState() {
+        localStorage.setItem('codesInput', document.getElementById('codesInput').value);
+        localStorage.setItem('foundCodes', JSON.stringify([...foundCodes]));
+        localStorage.setItem('foundLog', JSON.stringify(foundLog));
+    }
+
+    async function toggleTorch() {
+        isTorchOn = !isTorchOn;
+        await html5QrCode.applyVideoConstraints({ advanced: [{ torch: isTorchOn }] });
+    }
+
+    function clearMemory() {
+        if (confirm("Удалить всё?")) { localStorage.clear(); location.reload(); }
+    }
+
+    function copyToClipboard() {
+        const txt = foundLog.map(i => `${i.id}\t${i.time}`).join('\n');
+        navigator.clipboard.writeText(txt).then(() => alert("Скопировано"));
+    }
+
+    function pauseApp() {
+        if (html5QrCode) html5QrCode.stop().then(() => location.reload());
+    }
 </script>
 </body>
 </html>
