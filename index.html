@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="theme-color" content="#0a0f16">
-    <title>Sklad Scanner Elite v9.4</title>
+    <title>Sklad Scanner Elite v9.5</title>
     
     <script src="https://unpkg.com/html5-qrcode"></script>
     
@@ -84,6 +84,7 @@
         }
 
         .active-cam-label { text-align: center; font-size: 9px; text-transform: uppercase; color: var(--accent); margin-top: 8px; opacity: 0.7; letter-spacing: 1px; }
+        #debugLog { color: var(--danger); font-size: 11px; margin-top: 8px; text-align: center; font-family: monospace; word-wrap: break-word; padding: 0 10px; min-height: 15px; }
 
         .stats {
             display: flex; justify-content: space-between; background: var(--glass-bg);
@@ -111,7 +112,7 @@
 <div class="container">
     <div id="screenSetup">
         <div class="card">
-            <h2>Elite Scanner v9.4</h2>
+            <h2>Elite Scanner v9.5</h2>
             <label>Список штрихкодов</label>
             <textarea id="codesInput" placeholder="Введите ID..."></textarea>
             
@@ -121,6 +122,7 @@
             <button class="btn-start" onclick="startApp()">Включить сканер</button>
             <button class="btn-clear" onclick="clearMemory()">Очистить память</button>
         </div>
+        <div id="debugLogSetup" style="color: var(--danger); font-size: 10px; text-align: center;"></div>
         <div class="attribution">Designed & Developed by D. Martinkevich for Sofrino KBT</div>
     </div>
 
@@ -131,8 +133,7 @@
             <div id="laser" class="laser"></div>
         </div>
         <div id="activeCamName" class="active-cam-label">Инициализация...</div>
-
-        <div class="stats">
+        <div id="debugLog">Ожидание запуска камеры...</div> <div class="stats">
             <div><span class="label-stat">Найдено</span><span class="val" id="countFound">0</span></div>
             <div style="text-align:right"><span class="label-stat">Осталось</span><span class="val" id="countLeft" style="color: var(--accent)">0</span></div>
         </div>
@@ -169,18 +170,17 @@
 
     async function loadCameras() {
         const select = document.getElementById('cameraSelect');
+        const dbg = document.getElementById('debugLogSetup');
         try {
-            const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-            stream.getTracks().forEach(track => track.stop()); 
-
+            // Убрали предварительный захват камеры, используем только стандартный API
             const devices = await Html5Qrcode.getCameras();
             select.innerHTML = '';
             if (devices && devices.length) {
                 const lastId = localStorage.getItem('lastCameraId');
-                devices.forEach(camera => {
+                devices.forEach((camera, index) => {
                     const opt = document.createElement('option');
                     opt.value = camera.id;
-                    opt.text = camera.label || `Камера ${select.length + 1}`;
+                    opt.text = camera.label || `Линза ${index + 1}`;
                     if (camera.id === lastId) opt.selected = true;
                     select.appendChild(opt);
                 });
@@ -189,6 +189,7 @@
             }
         } catch (e) {
             select.innerHTML = '<option>Нет доступа к камерам</option>';
+            dbg.innerText = "Ошибка доступа: " + e.message;
         }
     }
 
@@ -209,16 +210,23 @@
         document.getElementById('screenSetup').style.display = 'none';
         document.getElementById('screenScanner').style.display = 'flex';
         document.getElementById('laser').style.display = 'block';
-        document.getElementById('activeCamName').innerText = "Линза: " + select.options[select.selectedIndex].text;
+        document.getElementById('activeCamName').innerText = "Выбрано: " + select.options[select.selectedIndex].text;
+        document.getElementById('debugLog').innerText = "Подключение к камере: " + cameraId.substring(0, 8) + "...";
+        document.getElementById('debugLog').style.color = "var(--text)";
         
         updateUI();
-        setTimeout(() => initScanner(cameraId), 300);
+        
+        // Даем браузеру время отрендерить UI перед блокирующим запуском камеры
+        setTimeout(() => initScanner(cameraId), 200);
     }
 
     function initScanner(cameraId) {
-        if (html5QrCode) { html5QrCode.clear(); }
+        if (html5QrCode) { 
+            html5QrCode.clear(); 
+        }
         html5QrCode = new Html5Qrcode("reader");
 
+        // ПОЛНОСТЬЮ убраны videoConstraints, чтобы библиотека не перезаписывала ID камеры
         const config = {
             fps: 15,
             qrbox: { width: 250, height: 250 },
@@ -228,33 +236,25 @@
             ]
         };
 
-        // Мягкие ограничения - идеальное 720p, но без жестких рамок и фокуса
-        const softConstraints = {
-            deviceId: { exact: cameraId },
-            width: { ideal: 1280 },
-            height: { ideal: 720 }
-        };
-
+        // Передаем строку cameraId (а не объект), это самый надежный метод в html5-qrcode
         html5QrCode.start(
-            softConstraints, 
+            cameraId, 
             config, 
             onScanSuccess
         ).then(() => {
-            const cap = html5QrCode.getRunningTrackCapabilities();
-            document.getElementById('torchBtn').style.display = (cap && cap.torch) ? 'block' : 'none';
+            document.getElementById('debugLog').innerText = "Камера успешно запущена.";
+            document.getElementById('debugLog').style.color = "var(--success)";
+            
+            try {
+                const cap = html5QrCode.getRunningTrackCapabilities();
+                document.getElementById('torchBtn').style.display = (cap && cap.torch) ? 'block' : 'none';
+            } catch(e) {}
+            
+            setTimeout(() => { document.getElementById('debugLog').innerText = ""; }, 3000);
         }).catch(err => {
-            console.warn("Ошибка мягкого запуска, пробуем сырой ID...", err);
-            // Если линза отказалась от любых параметров разрешения, запускаем просто по её ID
-            html5QrCode.start(
-                { deviceId: { exact: cameraId } }, 
-                config, 
-                onScanSuccess
-            ).then(() => {
-                document.getElementById('torchBtn').style.display = 'none';
-            }).catch(e => {
-                alert("Браузер не смог запустить эту линзу. Выберите другую. Ошибка: " + e);
-                stopApp();
-            });
+            // Выводим точную ошибку на экран
+            document.getElementById('debugLog').innerText = "ОШИБКА: " + err;
+            document.getElementById('debugLog').style.color = "var(--danger)";
         });
     }
 
@@ -351,7 +351,7 @@
         document.getElementById('screenScanner').style.display = 'none';
         document.getElementById('screenSetup').style.display = 'block';
         document.getElementById('laser').style.display = 'none';
-        await loadCameras();
+        document.getElementById('debugLog').innerText = "";
     }
 </script>
 </body>
