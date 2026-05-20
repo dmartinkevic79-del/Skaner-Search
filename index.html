@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="theme-color" content="#0a0f16">
-    <title>Sklad Sofrino KBT</title>
+    <title>Sklad Scanner Elite v9.3</title>
     
     <script src="https://unpkg.com/html5-qrcode"></script>
     
@@ -111,7 +111,7 @@
 <div class="container">
     <div id="screenSetup">
         <div class="card">
-            <h2>Sklad Sofrino KBT</h2>
+            <h2>Elite Scanner v9.3</h2>
             <label>Список штрихкодов</label>
             <textarea id="codesInput" placeholder="Введите ID..."></textarea>
             
@@ -170,9 +170,8 @@
     async function loadCameras() {
         const select = document.getElementById('cameraSelect');
         try {
-            // Сначала запрашиваем временный доступ, чтобы браузер выдал названия линз
             const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-            stream.getTracks().forEach(track => track.stop()); // Сразу закрываем
+            stream.getTracks().forEach(track => track.stop()); 
 
             const devices = await Html5Qrcode.getCameras();
             select.innerHTML = '';
@@ -213,38 +212,55 @@
         document.getElementById('activeCamName').innerText = "Линза: " + select.options[select.selectedIndex].text;
         
         updateUI();
-        
-        // Маленькая пауза перед стартом для стабильности
         setTimeout(() => initScanner(cameraId), 300);
     }
 
     function initScanner(cameraId) {
-        if (html5QrCode) {
-            html5QrCode.clear(); 
-        }
+        if (html5QrCode) { html5QrCode.clear(); }
         html5QrCode = new Html5Qrcode("reader");
 
+        // Включаем аппаратное ускорение декодирования
         const config = {
             fps: 20,
             qrbox: { width: 250, height: 250 },
             formatsToSupport: [ 
                 Html5QrcodeSupportedFormats.EAN_13, Html5QrcodeSupportedFormats.CODE_128, 
                 Html5QrcodeSupportedFormats.QR_CODE, Html5QrcodeSupportedFormats.DATA_MATRIX 
-            ]
+            ],
+            experimentalFeatures: {
+                useBarCodeDetectorIfSupported: true
+            }
         };
 
-        // ПРИНУДИТЕЛЬНЫЙ ВЫБОР ЧЕРЕЗ СТРОГИЙ ID
+        // Пытаемся запустить в HD качестве с автофокусом
+        const hdConstraints = {
+            deviceId: { exact: cameraId },
+            width: { min: 1280, ideal: 1920, max: 2560 },
+            height: { min: 720, ideal: 1080, max: 1440 },
+            advanced: [{ focusMode: "continuous" }]
+        };
+
         html5QrCode.start(
-            { deviceId: { exact: cameraId } }, 
+            hdConstraints, 
             config, 
             onScanSuccess
         ).then(() => {
             const cap = html5QrCode.getRunningTrackCapabilities();
             document.getElementById('torchBtn').style.display = cap.torch ? 'block' : 'none';
         }).catch(err => {
-            console.error(err);
-            alert("Ошибка линзы. Попробуйте выбрать другую.");
-            stopApp();
+            console.warn("Не удалось запустить в HD, пробуем базовое разрешение...", err);
+            // Запасной план: если камера отклонила HD-запрос, запускаем просто по ID
+            html5QrCode.start(
+                { deviceId: { exact: cameraId } }, 
+                config, 
+                onScanSuccess
+            ).then(() => {
+                const cap = html5QrCode.getRunningTrackCapabilities();
+                document.getElementById('torchBtn').style.display = cap.torch ? 'block' : 'none';
+            }).catch(e => {
+                alert("Ошибка запуска линзы. Попробуйте выбрать другую.");
+                stopApp();
+            });
         });
     }
 
@@ -335,7 +351,7 @@
             try {
                 await html5QrCode.stop();
                 html5QrCode.clear(); 
-                html5QrCode = null; // Полное уничтожение объекта
+                html5QrCode = null; 
             } catch (e) { console.log(e); }
         }
         document.getElementById('screenScanner').style.display = 'none';
