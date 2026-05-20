@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="theme-color" content="#0a0f16">
-    <title>Sklad Scanner Elite v9.3</title>
+    <title>Sklad Scanner Elite v9.4</title>
     
     <script src="https://unpkg.com/html5-qrcode"></script>
     
@@ -111,7 +111,7 @@
 <div class="container">
     <div id="screenSetup">
         <div class="card">
-            <h2>Elite Scanner v9.3</h2>
+            <h2>Elite Scanner v9.4</h2>
             <label>Список штрихкодов</label>
             <textarea id="codesInput" placeholder="Введите ID..."></textarea>
             
@@ -219,46 +219,40 @@
         if (html5QrCode) { html5QrCode.clear(); }
         html5QrCode = new Html5Qrcode("reader");
 
-        // Включаем аппаратное ускорение декодирования
         const config = {
-            fps: 20,
+            fps: 15,
             qrbox: { width: 250, height: 250 },
             formatsToSupport: [ 
                 Html5QrcodeSupportedFormats.EAN_13, Html5QrcodeSupportedFormats.CODE_128, 
                 Html5QrcodeSupportedFormats.QR_CODE, Html5QrcodeSupportedFormats.DATA_MATRIX 
-            ],
-            experimentalFeatures: {
-                useBarCodeDetectorIfSupported: true
-            }
+            ]
         };
 
-        // Пытаемся запустить в HD качестве с автофокусом
-        const hdConstraints = {
+        // Мягкие ограничения - идеальное 720p, но без жестких рамок и фокуса
+        const softConstraints = {
             deviceId: { exact: cameraId },
-            width: { min: 1280, ideal: 1920, max: 2560 },
-            height: { min: 720, ideal: 1080, max: 1440 },
-            advanced: [{ focusMode: "continuous" }]
+            width: { ideal: 1280 },
+            height: { ideal: 720 }
         };
 
         html5QrCode.start(
-            hdConstraints, 
+            softConstraints, 
             config, 
             onScanSuccess
         ).then(() => {
             const cap = html5QrCode.getRunningTrackCapabilities();
-            document.getElementById('torchBtn').style.display = cap.torch ? 'block' : 'none';
+            document.getElementById('torchBtn').style.display = (cap && cap.torch) ? 'block' : 'none';
         }).catch(err => {
-            console.warn("Не удалось запустить в HD, пробуем базовое разрешение...", err);
-            // Запасной план: если камера отклонила HD-запрос, запускаем просто по ID
+            console.warn("Ошибка мягкого запуска, пробуем сырой ID...", err);
+            // Если линза отказалась от любых параметров разрешения, запускаем просто по её ID
             html5QrCode.start(
                 { deviceId: { exact: cameraId } }, 
                 config, 
                 onScanSuccess
             ).then(() => {
-                const cap = html5QrCode.getRunningTrackCapabilities();
-                document.getElementById('torchBtn').style.display = cap.torch ? 'block' : 'none';
+                document.getElementById('torchBtn').style.display = 'none';
             }).catch(e => {
-                alert("Ошибка запуска линзы. Попробуйте выбрать другую.");
+                alert("Браузер не смог запустить эту линзу. Выберите другую. Ошибка: " + e);
                 stopApp();
             });
         });
