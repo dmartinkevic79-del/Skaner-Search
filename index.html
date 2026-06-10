@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="theme-color" content="#0a0f16">
-    <title>SofrinoKBT v9.5</title>
+    <title>Sklad Scanner Elite v10.4</title>
     
     <script src="https://unpkg.com/html5-qrcode"></script>
     
@@ -12,11 +12,13 @@
         :root {
             --bg: #05080a;
             --glass-bg: rgba(255, 255, 255, 0.03);
-            --glass-border: rgba(255, 255, 255, 0.07);
+            --glass-border: rgba(255, 255, 255, 0.08);
             --success: #00ff9d;
             --danger: #ff4d4d;
+            --warning: #f59e0b;
             --accent: #00d4ff;
             --text: #e0e6ed;
+            --text-muted: #9ca3af;
             --qr-size: 260px; 
         }
 
@@ -24,6 +26,7 @@
             font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
             margin: 0; padding: 0; background: var(--bg); color: var(--text);
             min-height: 100vh; display: flex; flex-direction: column;
+            -webkit-font-smoothing: antialiased;
         }
 
         #flashOverlay {
@@ -32,43 +35,49 @@
         }
 
         .container { 
-            max-width: 500px; margin: 0 auto; padding: 12px; 
+            max-width: 500px; margin: 0 auto; padding: 16px; 
             width: 100%; box-sizing: border-box; flex: 1;
             display: flex; flex-direction: column;
         }
 
         .card {
             background: var(--glass-bg); backdrop-filter: blur(20px);
-            border-radius: 24px; padding: 18px; border: 1px solid var(--glass-border);
-            margin-bottom: 15px;
+            border-radius: 24px; padding: 20px; border: 1px solid var(--glass-border);
+            margin-bottom: 16px;
         }
 
-        h2 { margin: 0 0 15px 0; font-size: 14px; letter-spacing: 2px; text-transform: uppercase; opacity: 0.6; text-align: center;}
-        label { display: block; font-size: 10px; text-transform: uppercase; opacity: 0.5; margin-bottom: 8px; margin-left: 5px; }
+        h2 { margin: 0 0 16px 0; font-size: 16px; letter-spacing: 2px; text-transform: uppercase; color: var(--text-muted); text-align: center;}
+        label { display: block; font-size: 13px; text-transform: uppercase; color: var(--text-muted); margin-bottom: 8px; margin-left: 4px; font-weight: 600; }
 
         textarea, select {
-            width: 100%; background: rgba(0, 0, 0, 0.6); color: var(--text);
-            border: 1px solid var(--glass-border); border-radius: 16px; padding: 15px;
-            font-size: 16px; box-sizing: border-box; outline: none;
+            width: 100%; background: rgba(0, 0, 0, 0.7); color: var(--text);
+            border: 1px solid var(--glass-border); border-radius: 16px; padding: 16px;
+            font-size: 16px; box-sizing: border-box; outline: none; transition: border-color 0.2s;
         }
+        textarea:focus, select:focus { border-color: var(--accent); }
 
-        textarea { height: 110px; font-family: 'Consolas', monospace; color: var(--success); resize: none; margin-bottom: 15px;}
-        select { appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 15px center; padding-right: 45px; margin-bottom: 15px; cursor: pointer; }
+        textarea { height: 130px; font-family: 'Consolas', monospace; color: var(--success); resize: none; margin-bottom: 16px;}
+        select { appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 15px center; padding-right: 45px; margin-bottom: 16px; cursor: pointer; }
 
         button {
-            width: 100%; padding: 16px; border-radius: 14px; border: none;
-            font-size: 14px; font-weight: 700; color: white; cursor: pointer;
-            text-transform: uppercase; transition: 0.2s; margin-top: 10px;
+            width: 100%; padding: 18px; border-radius: 16px; border: none;
+            font-size: 15px; font-weight: 700; color: white; cursor: pointer;
+            text-transform: uppercase; transition: transform 0.1s, opacity 0.2s; margin-top: 10px;
         }
+        button:active { transform: scale(0.98); }
 
         .btn-start { background: linear-gradient(135deg, #006357, #4e6b1e); }
-        .btn-clear { background: rgba(255, 77, 77, 0.05); border: 1px solid rgba(255, 77, 77, 0.3); color: #ff8080; }
+        .btn-clear { background: rgba(255, 77, 77, 0.08); border: 1px solid rgba(255, 77, 77, 0.4); color: #ff8080; }
         .btn-copy { background: linear-gradient(135deg, #007799, #002b55); flex: 2; margin: 0; }
-        .btn-stop { background: rgba(255,255,255,0.05); border: 1px solid var(--glass-border); flex: 1; margin: 0; }
-        .btn-torch { background: rgba(245, 158, 11, 0.1); border: 1px solid #f59e0b; color: #f59e0b; margin-bottom: 10px; display: none;}
+        .btn-stop { background: rgba(255,255,255,0.05); border: 1px solid var(--glass-border); flex: 1; margin: 0; color: var(--text); }
+        
+        /* Панель управления камерой */
+        .scanner-controls { display: flex; gap: 12px; margin-bottom: 12px; width: 100%; }
+        .btn-torch { background: rgba(245, 158, 11, 0.15); border: 1px solid var(--warning); color: var(--warning); margin: 0; display: none; flex: 1; width: 100%; }
+        .btn-wake { background: rgba(0, 214, 255, 0.15); border: 1px solid var(--accent); color: var(--accent); margin: 0; flex: 1; width: 100%; }
 
-        #reader-container { position: relative; border-radius: 20px; overflow: hidden; background: #000; }
-        #reader { width: 100%; }
+        #reader-container { position: relative; border-radius: 24px; overflow: hidden; background: #000; border: 1px solid var(--glass-border); }
+        #reader { width: 100%; min-height: 250px;}
         
         .laser {
             position: absolute; left: calc(50% - (var(--qr-size) / 2));
@@ -79,30 +88,35 @@
         }
 
         @keyframes scan-anim {
-            0%, 100% { transform: translateY(0); opacity: 0.2; }
+            0%, 100% { transform: translateY(0); opacity: 0.3; }
             50% { transform: translateY(var(--qr-size)); opacity: 1; }
         }
 
-        .active-cam-label { text-align: center; font-size: 9px; text-transform: uppercase; color: var(--accent); margin-top: 8px; opacity: 0.7; letter-spacing: 1px; }
-        #debugLog { color: var(--danger); font-size: 11px; margin-top: 8px; text-align: center; font-family: monospace; word-wrap: break-word; padding: 0 10px; min-height: 15px; }
+        .active-cam-label { text-align: center; font-size: 13px; text-transform: uppercase; color: var(--accent); margin-top: 12px; font-weight: 600; letter-spacing: 1px; }
+        
+        #statusPanel { 
+            font-size: 14px; margin-top: 10px; min-height: 24px; text-align: center; 
+            font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;
+        }
 
         .stats {
             display: flex; justify-content: space-between; background: var(--glass-bg);
-            padding: 15px 20px; border-radius: 20px; margin-top: 10px; margin-bottom: 12px;
+            padding: 16px 24px; border-radius: 20px; margin-top: 12px; margin-bottom: 16px;
             border: 1px solid var(--glass-border);
         }
-        .val { font-size: 28px; font-weight: 800; color: #fff; }
-        .label-stat { font-size: 10px; opacity: 0.4; font-weight: 900; text-transform: uppercase; }
+        .val { font-size: 32px; font-weight: 800; color: #fff; }
+        .label-stat { font-size: 12px; color: var(--text-muted); font-weight: 700; text-transform: uppercase; display: block; margin-bottom: 4px; }
 
         .found-list {
-            list-style: none; padding: 0; margin: 0; max-height: 150px;
-            overflow-y: auto; border-radius: 12px; background: rgba(0,0,0,0.2);
+            list-style: none; padding: 0; margin: 0; max-height: 180px;
+            overflow-y: auto; border-radius: 14px; background: rgba(0,0,0,0.3);
         }
-        .found-list li { padding: 12px 15px; border-bottom: 1px solid var(--glass-border); display: flex; justify-content: space-between; font-size: 14px; }
-        .found-list li strong { color: var(--success); font-family: monospace; }
+        .found-list li { padding: 14px 18px; border-bottom: 1px solid var(--glass-border); display: flex; justify-content: space-between; font-size: 15px; }
+        .found-list li strong { color: var(--success); font-family: monospace; font-size: 16px; }
+        .found-list li span { color: var(--text-muted); }
         
         #screenScanner { display: none; flex-direction: column; }
-        .attribution { text-align: center; font-size: 10px; color: #9ca3af; padding: 20px 0; text-transform: uppercase; letter-spacing: 1px; font-weight: 600; opacity: 0.5; }
+        .attribution { text-align: center; font-size: 11px; color: var(--text-muted); padding: 24px 0; text-transform: uppercase; letter-spacing: 1px; font-weight: 600; }
     </style>
 </head>
 <body>
@@ -112,28 +126,34 @@
 <div class="container">
     <div id="screenSetup">
         <div class="card">
-            <h2>SofrinoKBT v9.5</h2>
-            <label>Список штрихкодов</label>
-            <textarea id="codesInput" placeholder="Введите ID..."></textarea>
+            <h2>Elite Scanner v10.4</h2>
+            <label for="codesInput">Список штрихкодов для поиска</label>
+            <textarea id="codesInput" placeholder="Вставьте ID кодов сюда..."></textarea>
             
-            <label>Выбор камеры (линзы)</label>
+            <label for="cameraSelect">Выбор рабочей линзы</label>
             <select id="cameraSelect"></select>
 
-            <button class="btn-start" onclick="startApp()">Включить сканер</button>
-            <button class="btn-clear" onclick="clearMemory()">Очистить память</button>
+            <button id="startBtn" class="btn-start">Включить сканер</button>
+            <button id="clearBtn" class="btn-clear">Очистить память</button>
         </div>
-        <div id="debugLogSetup" style="color: var(--danger); font-size: 10px; text-align: center;"></div>
+        <div id="setupStatus" style="color: var(--danger); font-size: 13px; text-align: center; font-weight: 600;" aria-live="polite"></div>
         <div class="attribution">Designed & Developed by D. Martinkevich for Sofrino KBT</div>
     </div>
 
     <div id="screenScanner">
-        <button id="torchBtn" class="btn-torch" onclick="toggleTorch()">🔦 Фонарик</button>
+        <div class="scanner-controls">
+            <button id="torchBtn" class="btn-torch">🔦 Фонарик</button>
+            <button id="wakeBtn" class="btn-wake">🔄 Разбудить камеру</button>
+        </div>
+        
         <div id="reader-container">
             <div id="reader"></div>
             <div id="laser" class="laser"></div>
         </div>
         <div id="activeCamName" class="active-cam-label">Инициализация...</div>
-        <div id="debugLog">Ожидание запуска камеры...</div> <div class="stats">
+        <div id="statusPanel" aria-live="polite">Ожидание запуска камеры...</div>
+
+        <div class="stats">
             <div><span class="label-stat">Найдено</span><span class="val" id="countFound">0</span></div>
             <div style="text-align:right"><span class="label-stat">Осталось</span><span class="val" id="countLeft" style="color: var(--accent)">0</span></div>
         </div>
@@ -141,14 +161,15 @@
         <div class="card">
             <ul class="found-list" id="foundItemsList"></ul>
             <div style="display: flex; gap: 12px; margin-top: 15px;">
-                <button class="btn-copy" onclick="copyToClipboard()">Отчет</button>
-                <button class="btn-stop" onclick="stopApp()">Назад к линзам</button>
+                <button id="copyBtn" class="btn-copy">Отчет</button>
+                <button id="stopBtn" class="btn-stop">Назад</button>
             </div>
         </div>
     </div>
 </div>
 
 <script>
+    // --- STATE ---
     let targetCodesArray = [];
     let foundCodes = new Set();
     let foundLog = [];
@@ -160,23 +181,70 @@
 
     const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 
-    window.onload = async () => {
-        const savedInput = localStorage.getItem('codesInput');
-        if (savedInput) document.getElementById('codesInput').value = savedInput;
-        foundCodes = new Set(JSON.parse(localStorage.getItem('foundCodes') || '[]'));
-        foundLog = JSON.parse(localStorage.getItem('foundLog') || '[]');
+    // --- ИНИЦИАЛИЗАЦИЯ И СОБЫТИЯ ---
+    document.addEventListener('DOMContentLoaded', async () => {
+        loadStateSafely();
+        bindEvents();
         await loadCameras();
-    };
+    });
 
+    function bindEvents() {
+        document.getElementById('startBtn').addEventListener('click', startApp);
+        document.getElementById('clearBtn').addEventListener('click', clearAppState);
+        document.getElementById('torchBtn').addEventListener('click', toggleTorch);
+        document.getElementById('wakeBtn').addEventListener('click', wakeCamera);
+        document.getElementById('copyBtn').addEventListener('click', copyToClipboard);
+        document.getElementById('stopBtn').addEventListener('click', stopApp);
+    }
+
+    // --- НОРМАЛИЗАЦИЯ И ХРАНИЛИЩЕ ---
+    function normalizeCode(code) {
+        return code.replace(/[\s:;,\-]+/g, '').toUpperCase();
+    }
+
+    function loadStateSafely() {
+        try {
+            const savedInput = localStorage.getItem('sklad_codesInput');
+            if (savedInput) document.getElementById('codesInput').value = savedInput;
+            
+            const savedFound = localStorage.getItem('sklad_foundCodes');
+            foundCodes = savedFound ? new Set(JSON.parse(savedFound)) : new Set();
+            
+            const savedLog = localStorage.getItem('sklad_foundLog');
+            foundLog = savedLog ? JSON.parse(savedLog) : [];
+        } catch (e) {
+            localStorage.removeItem('sklad_foundCodes');
+            localStorage.removeItem('sklad_foundLog');
+            foundCodes = new Set();
+            foundLog = [];
+        }
+    }
+
+    function saveState() {
+        localStorage.setItem('sklad_foundCodes', JSON.stringify([...foundCodes]));
+        localStorage.setItem('sklad_foundLog', JSON.stringify(foundLog));
+    }
+
+    function clearAppState() {
+        if (confirm("Точно сбросить историю сканирования и список?")) { 
+            localStorage.removeItem('sklad_codesInput');
+            localStorage.removeItem('sklad_foundCodes');
+            localStorage.removeItem('sklad_foundLog');
+            localStorage.removeItem('sklad_lastCameraId');
+            location.reload(); 
+        }
+    }
+
+    // --- ИНИЦИАЛИЗАЦИЯ КАМЕР ---
     async function loadCameras() {
         const select = document.getElementById('cameraSelect');
-        const dbg = document.getElementById('debugLogSetup');
+        const setupStatus = document.getElementById('setupStatus');
         try {
-            // Убрали предварительный захват камеры, используем только стандартный API
             const devices = await Html5Qrcode.getCameras();
             select.innerHTML = '';
+            
             if (devices && devices.length) {
-                const lastId = localStorage.getItem('lastCameraId');
+                const lastId = localStorage.getItem('sklad_lastCameraId');
                 devices.forEach((camera, index) => {
                     const opt = document.createElement('option');
                     opt.value = camera.id;
@@ -184,12 +252,14 @@
                     if (camera.id === lastId) opt.selected = true;
                     select.appendChild(opt);
                 });
+                setupStatus.innerText = "";
             } else {
-                select.innerHTML = '<option>Камеры не найдены</option>';
+                select.innerHTML = '<option value="default">Авто-выбор (Задняя камера)</option>';
+                setupStatus.innerText = "";
             }
         } catch (e) {
-            select.innerHTML = '<option>Нет доступа к камерам</option>';
-            dbg.innerText = "Ошибка доступа: " + e.message;
+            select.innerHTML = '<option value="default">Авто-выбор (Задняя камера)</option>';
+            setupStatus.innerText = "";
         }
     }
 
@@ -197,38 +267,42 @@
         if (audioCtx.state === 'suspended') await audioCtx.resume();
         
         const input = document.getElementById('codesInput').value;
-        targetCodesArray = input.split(/\r?\n/).map(s => s.trim().toUpperCase()).filter(s => s !== "");
-        if (!targetCodesArray.length) return alert("Список пуст!");
+        targetCodesArray = input.split(/\r?\n/).map(s => normalizeCode(s)).filter(s => s !== "");
+            
+        if (!targetCodesArray.length) {
+            document.getElementById('setupStatus').innerText = "Список штрихкодов пуст!";
+            return;
+        }
 
         const select = document.getElementById('cameraSelect');
         const cameraId = select.value;
-        if (!cameraId) return alert("Линза не выбрана!");
 
-        localStorage.setItem('lastCameraId', cameraId);
-        localStorage.setItem('codesInput', input);
+        localStorage.setItem('sklad_lastCameraId', cameraId);
+        localStorage.setItem('sklad_codesInput', input);
 
         document.getElementById('screenSetup').style.display = 'none';
         document.getElementById('screenScanner').style.display = 'flex';
         document.getElementById('laser').style.display = 'block';
-        document.getElementById('activeCamName').innerText = "Выбрано: " + select.options[select.selectedIndex].text;
-        document.getElementById('debugLog').innerText = "Подключение к камере: " + cameraId.substring(0, 8) + "...";
-        document.getElementById('debugLog').style.color = "var(--text)";
+        document.getElementById('activeCamName').innerText = "Запуск объектива...";
         
         updateUI();
+        setStatus("loading", "Подключение к линзе...");
         
-        // Даем браузеру время отрендерить UI перед блокирующим запуском камеры
         setTimeout(() => initScanner(cameraId), 200);
     }
 
-    function initScanner(cameraId) {
+    async function initScanner(cameraId) {
         if (html5QrCode) { 
-            html5QrCode.clear(); 
+            try {
+                if (html5QrCode.isScanning) await html5QrCode.stop();
+                html5QrCode.clear(); 
+            } catch (e) {}
         }
+        
         html5QrCode = new Html5Qrcode("reader");
 
-        // ПОЛНОСТЬЮ убраны videoConstraints, чтобы библиотека не перезаписывала ID камеры
         const config = {
-            fps: 15,
+            fps: 12,
             qrbox: { width: 250, height: 250 },
             formatsToSupport: [ 
                 Html5QrcodeSupportedFormats.EAN_13, Html5QrcodeSupportedFormats.CODE_128, 
@@ -236,57 +310,121 @@
             ]
         };
 
-        // Передаем строку cameraId (а не объект), это самый надежный метод в html5-qrcode
-        html5QrCode.start(
-            cameraId, 
-            config, 
-            onScanSuccess
-        ).then(() => {
-            document.getElementById('debugLog').innerText = "Камера успешно запущена.";
-            document.getElementById('debugLog').style.color = "var(--success)";
+        const cameraConfig = cameraId === "default" ? { facingMode: "environment" } : cameraId;
+
+        try {
+            await html5QrCode.start(cameraConfig, config, onScanSuccess);
+            setStatus("success", "Сканер готов к работе");
+            
+            if (cameraId === "default") {
+                await loadCameras();
+            }
+
+            const select = document.getElementById('cameraSelect');
+            document.getElementById('activeCamName').innerText = "Выбрана: " + select.options[select.selectedIndex].text;
             
             try {
                 const cap = html5QrCode.getRunningTrackCapabilities();
                 document.getElementById('torchBtn').style.display = (cap && cap.torch) ? 'block' : 'none';
             } catch(e) {}
             
-            setTimeout(() => { document.getElementById('debugLog').innerText = ""; }, 3000);
-        }).catch(err => {
-            // Выводим точную ошибку на экран
-            document.getElementById('debugLog').innerText = "ОШИБКА: " + err;
-            document.getElementById('debugLog').style.color = "var(--danger)";
-        });
+            setTimeout(() => { 
+                if (document.getElementById('statusPanel').innerText === "СКАНЕР ГОТОВ К РАБОТЕ") {
+                    setStatus("normal", "Наведите на штрихкод");
+                }
+            }, 2000);
+            
+        } catch (err) {
+            setStatus("error", "Сбой линзы. Нажмите «Разбудить камеру» или сбросьте блок Chrome. Ошибка: " + err);
+            document.getElementById('activeCamName').innerText = "Ошибка доступа";
+        }
     }
 
+    // Функция ручного пробуждения/перезапуска камеры без выхода на главный экран
+    async function wakeCamera() {
+        isTorchOn = false;
+        setStatus("loading", "Пробуждение линзы...");
+        const currentId = localStorage.getItem('sklad_lastCameraId') || 'default';
+        await initScanner(currentId);
+    }
+
+    async function stopApp() {
+        setStatus("loading", "Остановка...");
+        if (html5QrCode) {
+            try {
+                if (html5QrCode.isScanning) await html5QrCode.stop();
+                html5QrCode.clear(); 
+                html5QrCode = null; 
+            } catch (e) {}
+        }
+        document.getElementById('screenScanner').style.display = 'none';
+        document.getElementById('screenSetup').style.display = 'block';
+        document.getElementById('laser').style.display = 'none';
+        await loadCameras();
+    }
+
+    // --- ЛОГИКА СКАНИРОВАНИЯ ---
     function onScanSuccess(decodedText) {
-        const raw = decodedText.trim().toUpperCase();
+        const raw = normalizeCode(decodedText);
         const now = Date.now();
         if (raw === lastScanResult && (now - lastScanTime < SCAN_DELAY)) return;
 
         let foundMatch = null;
-        const segments = raw.split(/[:\s]+/); 
-        
         if (targetCodesArray.includes(raw)) {
             foundMatch = raw;
-        } else {
-            for (let seg of segments) {
-                if (targetCodesArray.includes(seg)) { foundMatch = seg; break; }
-            }
         }
 
         if (foundMatch) {
             if (!foundCodes.has(foundMatch)) {
+                // Новое совпадение
                 foundCodes.add(foundMatch);
+                if (foundLog.length > 100) foundLog.pop();
                 foundLog.unshift({ id: foundMatch, time: new Date().toLocaleTimeString('ru-RU') });
                 saveState();
                 updateUI();
+                setStatus("success", "КОД НАЙДЕН: " + foundMatch);
+                triggerFeedback('success');
+            } else {
+                // Запрос проверки (Дубликат) — теперь выдаёт УСПЕШНЫЙ ЗВУК
+                setStatus("warning", "ДУБЛИКАТ: " + foundMatch);
+                triggerFeedback('warning'); 
             }
-            triggerFeedback('success');
         } else {
+            // Код вообще мимо списка
+            setStatus("error", "НЕ ИЗ СПИСКА: " + raw);
             triggerFeedback('fail');
         }
         lastScanResult = raw;
         lastScanTime = now;
+    }
+
+    function setStatus(type, text) {
+        const panel = document.getElementById('statusPanel');
+        panel.innerText = text;
+        if (type === "success") panel.style.color = "var(--success)";
+        else if (type === "error") panel.style.color = "var(--danger)";
+        else if (type === "warning") panel.style.color = "var(--warning)";
+        else if (type === "loading") panel.style.color = "var(--accent)";
+        else panel.style.color = "var(--text-muted)";
+    }
+
+    function triggerFeedback(type) {
+        const overlay = document.getElementById('flashOverlay');
+        
+        if (type === 'success' || type === 'warning') {
+            // Для нового кода вспышка зелёная, для дубликата — жёлтая. Но звук ОДИНАКОВО РАДОСТНЫЙ!
+            overlay.style.backgroundColor = (type === 'success') ? 'rgba(0, 255, 157, 0.3)' : 'rgba(245, 158, 11, 0.3)';
+            
+            // Приятный двойной писк успеха
+            playTone(900, 'sine', 0.1, 0.2); 
+            setTimeout(() => playTone(1200, 'sine', 0.15, 0.2), 80);
+        } else {
+            // Жёсткий баг-сигнал для кодов не из списка (красная вспышка)
+            overlay.style.backgroundColor = 'rgba(255, 77, 77, 0.3)';
+            playTone(180, 'triangle', 0.3, 0.3);
+        }
+        overlay.style.display = 'block';
+        setTimeout(() => overlay.style.display = 'none', 150);
     }
 
     function playTone(freq, type, dur, vol) {
@@ -301,29 +439,11 @@
         osc.start(); osc.stop(audioCtx.currentTime + dur);
     }
 
-    function triggerFeedback(type) {
-        const overlay = document.getElementById('flashOverlay');
-        if (type === 'success') {
-            overlay.style.backgroundColor = 'rgba(0, 255, 157, 0.3)';
-            playTone(900, 'sine', 0.1, 0.2); 
-            setTimeout(() => playTone(1200, 'sine', 0.15, 0.2), 80);
-        } else {
-            overlay.style.backgroundColor = 'rgba(255, 77, 77, 0.3)';
-            playTone(180, 'triangle', 0.3, 0.3);
-        }
-        overlay.style.display = 'block';
-        setTimeout(() => overlay.style.display = 'none', 150);
-    }
-
+    // --- UI ОБНОВЛЕНИЕ ---
     function updateUI() {
         document.getElementById('countFound').innerText = foundCodes.size;
         document.getElementById('countLeft').innerText = Math.max(0, targetCodesArray.length - foundCodes.size);
-        document.getElementById('foundItemsList').innerHTML = foundLog.slice(0, 30).map(i => `<li><strong>${i.id}</strong><span>${i.time}</span></li>`).join('');
-    }
-
-    function saveState() {
-        localStorage.setItem('foundCodes', JSON.stringify([...foundCodes]));
-        localStorage.setItem('foundLog', JSON.stringify(foundLog));
+        document.getElementById('foundItemsList').innerHTML = foundLog.map(i => `<li><strong>${i.id}</strong><span>${i.time}</span></li>`).join('');
     }
 
     async function toggleTorch() {
@@ -331,27 +451,9 @@
         try { await html5QrCode.applyVideoConstraints({ advanced: [{ torch: isTorchOn }] }); } catch (e) {}
     }
 
-    function clearMemory() {
-        if (confirm("Сбросить историю?")) { localStorage.clear(); location.reload(); }
-    }
-
     function copyToClipboard() {
         const txt = foundLog.map(i => `${i.id}\t${i.time}`).join('\n');
         navigator.clipboard.writeText(txt).then(() => alert("Отчет скопирован"));
-    }
-
-    async function stopApp() {
-        if (html5QrCode) {
-            try {
-                await html5QrCode.stop();
-                html5QrCode.clear(); 
-                html5QrCode = null; 
-            } catch (e) { console.log(e); }
-        }
-        document.getElementById('screenScanner').style.display = 'none';
-        document.getElementById('screenSetup').style.display = 'block';
-        document.getElementById('laser').style.display = 'none';
-        document.getElementById('debugLog').innerText = "";
     }
 </script>
 </body>
