@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="theme-color" content="#0a0f16">
-    <title>Sklad Scanner Elite v10.5</title>
+    <title>Sklad Scanner Elite v10.6</title>
     
     <script src="https://unpkg.com/html5-qrcode"></script>
     
@@ -94,8 +94,8 @@
         .active-cam-label { text-align: center; font-size: 13px; text-transform: uppercase; color: var(--accent); margin-top: 12px; font-weight: 600; letter-spacing: 1px; }
         
         #statusPanel { 
-            font-size: 14px; margin-top: 10px; min-height: 24px; text-align: center; 
-            font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;
+            font-size: 14px; margin-top: 10px; min-height: 40px; text-align: center; 
+            font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; line-height: 1.4;
         }
 
         .stats {
@@ -125,7 +125,7 @@
 <div class="container">
     <div id="screenSetup">
         <div class="card">
-            <h2>Elite Scanner v10.5</h2>
+            <h2>Elite Scanner v10.6</h2>
             <label for="codesInput">Список штрихкодов для поиска</label>
             <textarea id="codesInput" placeholder="Вставьте ID кодов сюда..."></textarea>
             
@@ -180,7 +180,7 @@
 
     const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 
-    // --- ИНИЦИАЛИЗАЦИЯ И СОБЫТИЯ ---
+    // --- ИНИЦИАЛИЗАЦИЯ ---
     document.addEventListener('DOMContentLoaded', async () => {
         loadStateSafely();
         bindEvents();
@@ -196,36 +196,68 @@
         document.getElementById('stopBtn').addEventListener('click', stopApp);
     }
 
-    // --- УМНЫЙ ПОИСК И ХРАНИЛИЩЕ ---
-    
-    // Очистка только для пользовательского ввода (убираем случайные пробелы)
     function cleanInputCode(code) {
         return code.trim().toUpperCase();
     }
 
-    // Главная функция поиска
+    // --- БРОНЕБОЙНЫЙ ПОИСКОВЫЙ ДВИЖОК ---
     function findMatchingTarget(scannedText, targets) {
         const raw = scannedText.trim().toUpperCase();
         
-        // 1. Точное совпадение
-        if (targets.includes(raw)) return raw;
+        // 1. Прямое точное совпадение
+        if (targets.includes(raw)) return { match: raw, hint: null };
         
-        // 2. Разбивка на сегменты (по двоеточиям, слэшам, знакам доллара, пробелам)
-        const segments = raw.split(/[:;\s,\-\$\/]+/);
-        for (let seg of segments) {
-            if (seg && targets.includes(seg)) {
-                return seg;
-            }
-        }
+        // Очищаем скан от спецсимволов для сквозного сравнения
+        const cleanedRaw = raw.replace(/[^A-Z0-9]/g, '');
         
-        // 3. Глубокий поиск подстроки (на случай слитных кодов)
+        // 2. Сквозной поиск по очищенной строке (найдет 5004610495 внутри 115004610495116196)
         for (let target of targets) {
-            if (target.length > 3 && raw.includes(target)) {
-                return target;
+            const cleanedTarget = target.replace(/[^A-Z0-9]/g, '');
+            if (cleanedTarget.length > 3) {
+                if (cleanedRaw.includes(cleanedTarget) || cleanedTarget.includes(cleanedRaw)) {
+                    return { match: target, hint: null };
+                }
             }
         }
         
-        return null;
+        // 3. Нарезка на сегменты по любым разделителям
+        const segments = raw.split(/[^A-Z0-9]+/);
+        for (let seg of segments) {
+            if (seg && seg.length > 3) {
+                if (targets.includes(seg)) return { match: seg, hint: null };
+            }
+        }
+        
+        // 4. Если ничего не подошло — ищем похожий код для вывода ОПЕЧАТКИ
+        let bestHint = null;
+        let maxOverlap = 0;
+        
+        for (let target of targets) {
+            const cleanedTarget = target.replace(/[^A-Z0-9]/g, '');
+            let overlapLen = getLongestCommonSubstring(cleanedRaw, cleanedTarget);
+            if (overlapLen > maxOverlap && overlapLen >= 5) {
+                maxOverlap = overlapLen;
+                bestHint = target;
+            }
+        }
+        
+        return { match: null, hint: bestHint };
+    }
+
+    // Вычисление пересечения цифр для подсказки опечаток
+    function getLongestCommonSubstring(str1, str2) {
+        if (!str1 || !str2) return 0;
+        let num = Array(str1.length + 1).fill(0).map(() => Array(str2.length + 1).fill(0));
+        let maxlen = 0;
+        for (let i = 1; i <= str1.length; i++) {
+            for (let j = 1; j <= str2.length; j++) {
+                if (str1[i - 1] === str2[j - 1]) {
+                    num[i][j] = num[i - 1][j - 1] + 1;
+                    if (num[i][j] > maxlen) maxlen = num[i][j];
+                }
+            }
+        }
+        return maxlen;
     }
 
     function loadStateSafely() {
@@ -239,8 +271,6 @@
             const savedLog = localStorage.getItem('sklad_foundLog');
             foundLog = savedLog ? JSON.parse(savedLog) : [];
         } catch (e) {
-            localStorage.removeItem('sklad_foundCodes');
-            localStorage.removeItem('sklad_foundLog');
             foundCodes = new Set();
             foundLog = [];
         }
@@ -253,22 +283,18 @@
 
     function clearAppState() {
         if (confirm("Точно сбросить историю сканирования и список?")) { 
-            localStorage.removeItem('sklad_codesInput');
-            localStorage.removeItem('sklad_foundCodes');
-            localStorage.removeItem('sklad_foundLog');
-            localStorage.removeItem('sklad_lastCameraId');
+            localStorage.clear();
             location.reload(); 
         }
     }
 
-    // --- ИНИЦИАЛИЗАЦИЯ КАМЕР ---
+    // --- КАМЕРЫ И СТАРТ ---
     async function loadCameras() {
         const select = document.getElementById('cameraSelect');
         const setupStatus = document.getElementById('setupStatus');
         try {
             const devices = await Html5Qrcode.getCameras();
             select.innerHTML = '';
-            
             if (devices && devices.length) {
                 const lastId = localStorage.getItem('sklad_lastCameraId');
                 devices.forEach((camera, index) => {
@@ -281,11 +307,9 @@
                 setupStatus.innerText = "";
             } else {
                 select.innerHTML = '<option value="default">Авто-выбор (Задняя камера)</option>';
-                setupStatus.innerText = "";
             }
         } catch (e) {
             select.innerHTML = '<option value="default">Авто-выбор (Задняя камера)</option>';
-            setupStatus.innerText = "";
         }
     }
 
@@ -300,33 +324,25 @@
             return;
         }
 
-        const select = document.getElementById('cameraSelect');
-        const cameraId = select.value;
-
+        const cameraId = document.getElementById('cameraSelect').value;
         localStorage.setItem('sklad_lastCameraId', cameraId);
         localStorage.setItem('sklad_codesInput', input);
 
         document.getElementById('screenSetup').style.display = 'none';
         document.getElementById('screenScanner').style.display = 'flex';
         document.getElementById('laser').style.display = 'block';
-        document.getElementById('activeCamName').innerText = "Запуск объектива...";
         
         updateUI();
-        setStatus("loading", "Подключение к линзе...");
-        
+        setStatus("loading", "Подключение...");
         setTimeout(() => initScanner(cameraId), 200);
     }
 
     async function initScanner(cameraId) {
         if (html5QrCode) { 
-            try {
-                if (html5QrCode.isScanning) await html5QrCode.stop();
-                html5QrCode.clear(); 
-            } catch (e) {}
+            try { if (html5QrCode.isScanning) await html5QrCode.stop(); html5QrCode.clear(); } catch (e) {}
         }
         
         html5QrCode = new Html5Qrcode("reader");
-
         const config = {
             fps: 12,
             qrbox: { width: 250, height: 250 },
@@ -335,52 +351,30 @@
                 Html5QrcodeSupportedFormats.QR_CODE, Html5QrcodeSupportedFormats.DATA_MATRIX 
             ]
         };
-
         const cameraConfig = cameraId === "default" ? { facingMode: "environment" } : cameraId;
 
         try {
             await html5QrCode.start(cameraConfig, config, onScanSuccess);
-            setStatus("success", "Сканер готов к работе");
-            
-            if (cameraId === "default") {
-                await loadCameras();
-            }
-
-            const select = document.getElementById('cameraSelect');
-            document.getElementById('activeCamName').innerText = "Выбрана: " + select.options[select.selectedIndex].text;
-            
+            setStatus("success", "Сканер готов");
+            document.getElementById('activeCamName').innerText = "Линза активна";
             try {
                 const cap = html5QrCode.getRunningTrackCapabilities();
                 document.getElementById('torchBtn').style.display = (cap && cap.torch) ? 'block' : 'none';
             } catch(e) {}
-            
-            setTimeout(() => { 
-                if (document.getElementById('statusPanel').innerText === "СКАНЕР ГОТОВ К РАБОТЕ") {
-                    setStatus("normal", "Наведите на штрихкод");
-                }
-            }, 2000);
-            
         } catch (err) {
-            setStatus("error", "Сбой линзы. Нажмите «Разбудить камеру» или сбросьте блок Chrome. Ошибка: " + err);
-            document.getElementById('activeCamName').innerText = "Ошибка доступа";
+            setStatus("error", "Сбой линзы. Нажмите «Разбудить»");
         }
     }
 
     async function wakeCamera() {
         isTorchOn = false;
-        setStatus("loading", "Пробуждение линзы...");
-        const currentId = localStorage.getItem('sklad_lastCameraId') || 'default';
-        await initScanner(currentId);
+        setStatus("loading", "Пробуждение...");
+        await initScanner(localStorage.getItem('sklad_lastCameraId') || 'default');
     }
 
     async function stopApp() {
-        setStatus("loading", "Остановка...");
         if (html5QrCode) {
-            try {
-                if (html5QrCode.isScanning) await html5QrCode.stop();
-                html5QrCode.clear(); 
-                html5QrCode = null; 
-            } catch (e) {}
+            try { if (html5QrCode.isScanning) await html5QrCode.stop(); html5QrCode.clear(); html5QrCode = null; } catch (e) {}
         }
         document.getElementById('screenScanner').style.display = 'none';
         document.getElementById('screenSetup').style.display = 'block';
@@ -388,40 +382,43 @@
         await loadCameras();
     }
 
-    // --- ЛОГИКА СКАНИРОВАНИЯ ---
+    // --- ОБРАБОТКА СКАНИРОВАНИЯ ---
     function onScanSuccess(decodedText) {
         const rawScanned = decodedText.trim().toUpperCase();
         const now = Date.now();
         if (rawScanned === lastScanResult && (now - lastScanTime < SCAN_DELAY)) return;
 
-        // Используем новую функцию умного поиска
-        let foundMatch = findMatchingTarget(rawScanned, targetCodesArray);
+        let search = findMatchingTarget(rawScanned, targetCodesArray);
 
-        if (foundMatch) {
-            if (!foundCodes.has(foundMatch)) {
-                foundCodes.add(foundMatch);
+        if (search.match) {
+            const code = search.match;
+            if (!foundCodes.has(code)) {
+                foundCodes.add(code);
                 if (foundLog.length > 100) foundLog.pop();
-                foundLog.unshift({ id: foundMatch, time: new Date().toLocaleTimeString('ru-RU') });
+                foundLog.unshift({ id: code, time: new Date().toLocaleTimeString('ru-RU') });
                 saveState();
                 updateUI();
-                setStatus("success", "КОД НАЙДЕН: " + foundMatch);
+                setStatus("success", "КОД НАЙДЕН:<br>" + code);
                 triggerFeedback('success');
             } else {
-                setStatus("warning", "ДУБЛИКАТ: " + foundMatch);
+                setStatus("warning", "ДУБЛИКАТ:<br>" + code);
                 triggerFeedback('warning'); 
             }
         } else {
-            setStatus("error", "НЕ ИЗ СПИСКА: " + rawScanned);
+            let errorHtml = "НЕ ИЗ СПИСКА:<br><span style='font-size:11px; font-family:monospace;'>" + rawScanned + "</span>";
+            if (search.hint) {
+                errorHtml += "<br><span style='color: var(--warning); font-size: 13px; font-weight:bold; display:block; margin-top:6px;'>⚠️ Похож на: " + search.hint + "</span>";
+            }
+            setStatus("error", errorHtml);
             triggerFeedback('fail');
         }
-        
         lastScanResult = rawScanned;
         lastScanTime = now;
     }
 
-    function setStatus(type, text) {
+    function setStatus(type, htmlText) {
         const panel = document.getElementById('statusPanel');
-        panel.innerText = text;
+        panel.innerHTML = htmlText;
         if (type === "success") panel.style.color = "var(--success)";
         else if (type === "error") panel.style.color = "var(--danger)";
         else if (type === "warning") panel.style.color = "var(--warning)";
@@ -431,13 +428,12 @@
 
     function triggerFeedback(type) {
         const overlay = document.getElementById('flashOverlay');
-        
         if (type === 'success' || type === 'warning') {
-            overlay.style.backgroundColor = (type === 'success') ? 'rgba(0, 255, 157, 0.3)' : 'rgba(245, 158, 11, 0.3)';
+            overlay.style.backgroundColor = (type === 'success') ? 'rgba(0, 255, 157, 0.25)' : 'rgba(245, 158, 11, 0.25)';
             playTone(900, 'sine', 0.1, 0.2); 
             setTimeout(() => playTone(1200, 'sine', 0.15, 0.2), 80);
         } else {
-            overlay.style.backgroundColor = 'rgba(255, 77, 77, 0.3)';
+            overlay.style.backgroundColor = 'rgba(255, 77, 77, 0.25)';
             playTone(180, 'triangle', 0.3, 0.3);
         }
         overlay.style.display = 'block';
@@ -474,4 +470,3 @@
 </script>
 </body>
 </html>
-
