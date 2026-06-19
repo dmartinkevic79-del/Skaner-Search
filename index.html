@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="theme-color" content="#0a0f16">
-    <title>Sklad Scanner Elite v10.4</title>
+    <title>Sklad Scanner Elite v10.5</title>
     
     <script src="https://unpkg.com/html5-qrcode"></script>
     
@@ -71,7 +71,6 @@
         .btn-copy { background: linear-gradient(135deg, #007799, #002b55); flex: 2; margin: 0; }
         .btn-stop { background: rgba(255,255,255,0.05); border: 1px solid var(--glass-border); flex: 1; margin: 0; color: var(--text); }
         
-        /* Панель управления камерой */
         .scanner-controls { display: flex; gap: 12px; margin-bottom: 12px; width: 100%; }
         .btn-torch { background: rgba(245, 158, 11, 0.15); border: 1px solid var(--warning); color: var(--warning); margin: 0; display: none; flex: 1; width: 100%; }
         .btn-wake { background: rgba(0, 214, 255, 0.15); border: 1px solid var(--accent); color: var(--accent); margin: 0; flex: 1; width: 100%; }
@@ -126,7 +125,7 @@
 <div class="container">
     <div id="screenSetup">
         <div class="card">
-            <h2>Elite Scanner v10.4</h2>
+            <h2>Elite Scanner v10.5</h2>
             <label for="codesInput">Список штрихкодов для поиска</label>
             <textarea id="codesInput" placeholder="Вставьте ID кодов сюда..."></textarea>
             
@@ -197,9 +196,36 @@
         document.getElementById('stopBtn').addEventListener('click', stopApp);
     }
 
-    // --- НОРМАЛИЗАЦИЯ И ХРАНИЛИЩЕ ---
-    function normalizeCode(code) {
-        return code.replace(/[\s:;,\-]+/g, '').toUpperCase();
+    // --- УМНЫЙ ПОИСК И ХРАНИЛИЩЕ ---
+    
+    // Очистка только для пользовательского ввода (убираем случайные пробелы)
+    function cleanInputCode(code) {
+        return code.trim().toUpperCase();
+    }
+
+    // Главная функция поиска
+    function findMatchingTarget(scannedText, targets) {
+        const raw = scannedText.trim().toUpperCase();
+        
+        // 1. Точное совпадение
+        if (targets.includes(raw)) return raw;
+        
+        // 2. Разбивка на сегменты (по двоеточиям, слэшам, знакам доллара, пробелам)
+        const segments = raw.split(/[:;\s,\-\$\/]+/);
+        for (let seg of segments) {
+            if (seg && targets.includes(seg)) {
+                return seg;
+            }
+        }
+        
+        // 3. Глубокий поиск подстроки (на случай слитных кодов)
+        for (let target of targets) {
+            if (target.length > 3 && raw.includes(target)) {
+                return target;
+            }
+        }
+        
+        return null;
     }
 
     function loadStateSafely() {
@@ -267,7 +293,7 @@
         if (audioCtx.state === 'suspended') await audioCtx.resume();
         
         const input = document.getElementById('codesInput').value;
-        targetCodesArray = input.split(/\r?\n/).map(s => normalizeCode(s)).filter(s => s !== "");
+        targetCodesArray = input.split(/\r?\n/).map(s => cleanInputCode(s)).filter(s => s !== "");
             
         if (!targetCodesArray.length) {
             document.getElementById('setupStatus').innerText = "Список штрихкодов пуст!";
@@ -340,7 +366,6 @@
         }
     }
 
-    // Функция ручного пробуждения/перезапуска камеры без выхода на главный экран
     async function wakeCamera() {
         isTorchOn = false;
         setStatus("loading", "Пробуждение линзы...");
@@ -365,18 +390,15 @@
 
     // --- ЛОГИКА СКАНИРОВАНИЯ ---
     function onScanSuccess(decodedText) {
-        const raw = normalizeCode(decodedText);
+        const rawScanned = decodedText.trim().toUpperCase();
         const now = Date.now();
-        if (raw === lastScanResult && (now - lastScanTime < SCAN_DELAY)) return;
+        if (rawScanned === lastScanResult && (now - lastScanTime < SCAN_DELAY)) return;
 
-        let foundMatch = null;
-        if (targetCodesArray.includes(raw)) {
-            foundMatch = raw;
-        }
+        // Используем новую функцию умного поиска
+        let foundMatch = findMatchingTarget(rawScanned, targetCodesArray);
 
         if (foundMatch) {
             if (!foundCodes.has(foundMatch)) {
-                // Новое совпадение
                 foundCodes.add(foundMatch);
                 if (foundLog.length > 100) foundLog.pop();
                 foundLog.unshift({ id: foundMatch, time: new Date().toLocaleTimeString('ru-RU') });
@@ -385,16 +407,15 @@
                 setStatus("success", "КОД НАЙДЕН: " + foundMatch);
                 triggerFeedback('success');
             } else {
-                // Запрос проверки (Дубликат) — теперь выдаёт УСПЕШНЫЙ ЗВУК
                 setStatus("warning", "ДУБЛИКАТ: " + foundMatch);
                 triggerFeedback('warning'); 
             }
         } else {
-            // Код вообще мимо списка
-            setStatus("error", "НЕ ИЗ СПИСКА: " + raw);
+            setStatus("error", "НЕ ИЗ СПИСКА: " + rawScanned);
             triggerFeedback('fail');
         }
-        lastScanResult = raw;
+        
+        lastScanResult = rawScanned;
         lastScanTime = now;
     }
 
@@ -412,14 +433,10 @@
         const overlay = document.getElementById('flashOverlay');
         
         if (type === 'success' || type === 'warning') {
-            // Для нового кода вспышка зелёная, для дубликата — жёлтая. Но звук ОДИНАКОВО РАДОСТНЫЙ!
             overlay.style.backgroundColor = (type === 'success') ? 'rgba(0, 255, 157, 0.3)' : 'rgba(245, 158, 11, 0.3)';
-            
-            // Приятный двойной писк успеха
             playTone(900, 'sine', 0.1, 0.2); 
             setTimeout(() => playTone(1200, 'sine', 0.15, 0.2), 80);
         } else {
-            // Жёсткий баг-сигнал для кодов не из списка (красная вспышка)
             overlay.style.backgroundColor = 'rgba(255, 77, 77, 0.3)';
             playTone(180, 'triangle', 0.3, 0.3);
         }
@@ -439,7 +456,6 @@
         osc.start(); osc.stop(audioCtx.currentTime + dur);
     }
 
-    // --- UI ОБНОВЛЕНИЕ ---
     function updateUI() {
         document.getElementById('countFound').innerText = foundCodes.size;
         document.getElementById('countLeft').innerText = Math.max(0, targetCodesArray.length - foundCodes.size);
@@ -458,3 +474,4 @@
 </script>
 </body>
 </html>
+
